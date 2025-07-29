@@ -1,0 +1,104 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Annotation History</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h1 { font-size: 24px; }
+    .entry { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+    .entry img { max-width: 200px; display: block; margin-top: 5px; }
+    .entry audio { display: block; margin-top: 5px; }
+    .nav-link { margin-bottom: 20px; display: inline-block; }
+    .pagination { margin-top: 20px; }
+    .pagination button { margin: 0 5px; }
+  </style>
+</head>
+<body>
+  <a href="/" class="nav-link">← Back to Main App</a>
+  <h1>Annotation History</h1>
+  <div>
+    Sort by:
+    <select id="sortSelect">
+      <option value="filename">Filename (A-Z)</option>
+      <option value="date">Most Recent</option>
+    </select>
+  </div>
+  <div id="historyContainer">Loading...</div>
+  <div class="pagination">
+    <button id="prevPage">Previous</button>
+    <span id="pageIndicator"></span>
+    <button id="nextPage">Next</button>
+  </div>
+
+  <script>
+    let data = {};
+    let keys = [];
+    let page = 0;
+    const pageSize = 5;
+
+    async function loadData() {
+      const res = await fetch('/annotations.json');
+      data = await res.json();
+      updateKeys();
+      render();
+    }
+
+    function updateKeys() {
+      const sort = document.getElementById('sortSelect').value;
+      keys = Object.keys(data);
+      if (sort === 'filename') {
+        keys.sort();
+      } else if (sort === 'date') {
+        keys.sort((a, b) => new Date(data[b].timestamp || 0) - new Date(data[a].timestamp || 0));
+      }
+      page = 0;
+    }
+
+    function deleteEntry(filename) {
+      fetch('/delete-annotation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename })
+      }).then(() => {
+        delete data[filename];
+        updateKeys();
+        render();
+      });
+    }
+
+    function render() {
+      const container = document.getElementById('historyContainer');
+      container.innerHTML = '';
+      const start = page * pageSize;
+      const end = Math.min(start + pageSize, keys.length);
+      for (let i = start; i < end; i++) {
+        const filename = keys[i];
+        const { output_image, output_audio } = data[filename];
+        const div = document.createElement('div');
+        div.className = 'entry';
+        div.innerHTML = `
+          <strong>${filename}</strong><br>
+          <img src="${output_image}" alt="${filename}"><br>
+          <audio controls src="${output_audio}"></audio><br>
+          <a href="${output_audio}" download>Download MP3</a> |
+          <a href="${output_image}" download>Download Image</a> |
+          <button onclick="deleteEntry('${filename}')">Delete</button>
+        `;
+        container.appendChild(div);
+      }
+      document.getElementById('pageIndicator').innerText = \`Page \${page + 1} of \${Math.ceil(keys.length / pageSize)}\`;
+      document.getElementById('prevPage').disabled = page === 0;
+      document.getElementById('nextPage').disabled = end >= keys.length;
+    }
+
+    document.getElementById('prevPage').onclick = () => { if (page > 0) page--; render(); };
+    document.getElementById('nextPage').onclick = () => { if ((page + 1) * pageSize < keys.length) page++; render(); };
+    document.getElementById('sortSelect').onchange = () => { updateKeys(); render(); };
+
+    loadData();
+  </script>
+</body>
+</html>

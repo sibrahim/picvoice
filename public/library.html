@@ -1,0 +1,64 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PicVoice - Library</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>📚 PicVoice Library</h1>
+    <div id="library">
+        <button onclick="downloadCSV()">📥 Download CSV</button>
+        <div id="fileList"></div>
+    </div>
+
+    <script>
+        async function loadLibrary() {
+            const res = await fetch('/annotations.json');
+            const data = await res.json();
+            const listDiv = document.getElementById('fileList');
+            listDiv.innerHTML = '';
+
+            for (const [filename, entry] of Object.entries(data)) {
+                const container = document.createElement('div');
+                container.classList.add('entry');
+
+                const img = document.createElement('img');
+                img.src = entry.output_image;
+                img.style.width = '150px';
+
+                const audio = document.createElement('audio');
+                audio.controls = true;
+                audio.src = entry.output_audio;
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.innerText = '🗑️ Delete';
+                deleteBtn.onclick = async () => {
+                    if (confirm(`Delete annotation for ${filename}?`)) {
+                        const resp = await fetch(`/delete?filename=${filename}`, { method: 'DELETE' });
+                        if (resp.ok) {
+                            loadLibrary();
+                        }
+                    }
+                };
+
+                container.appendChild(img);
+                container.appendChild(document.createElement('br'));
+                container.appendChild(audio);
+                container.appendChild(document.createElement('br'));
+                container.appendChild(deleteBtn);
+                container.appendChild(document.createElement('hr'));
+
+                listDiv.appendChild(container);
+            }
+        }
+
+        function downloadCSV() {
+            window.location.href = '/annotations.csv';
+        }
+
+        window.onload = loadLibrary;
+    </script>
+</body>
+</html>
