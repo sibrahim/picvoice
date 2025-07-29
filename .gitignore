@@ -1,4 +1,4 @@
-# Version directories to exclude
+git# Version directories to exclude
 public/v6/
 public/v7/
 public/v8/
@@ -91,8 +91,8 @@ annotations.csv
 *.zip
 
 # Root level files that shouldn't be in repo
-script.js
-style.css
+#script.js
+#style.css
 
 # Package lock (optional - uncomment if you want to exclude it)
 # package-lock.json 

@@ -246,3 +246,10 @@ window.addEventListener('keydown', (event) => {
     helpModal.style.display = 'none';
   }
 });
+
+// Add event listener for the new select image button
+const selectImageBtn = document.getElementById('selectImageBtn');
+const imageInput = document.getElementById('imageInput');
+if (selectImageBtn && imageInput) {
+  selectImageBtn.addEventListener('click', () => imageInput.click());
+}

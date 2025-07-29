@@ -27,18 +27,17 @@
           <p style="font-size:1.1rem;">All controls are accessible by keyboard. For help, click this button any time.</p>
         </div>
       </div>
-      <div class="step">1. Select Image</div>
+      <div class="step">
+        <button id="selectImageBtn" class="select-image-btn" type="button">1. Select folder</button>
+      </div>
       <button id="helpBtn" class="help-btn" title="Show instructions">?</button>
       <!-- <div class="instructions">Use the buttons below or keyboard shortcuts: Spacebar to start recording, Q to stop, arrows to navigate.</div> -->
-      <input type="file" id="imageInput" accept="image/*" webkitdirectory directory multiple>
+      <input type="file" id="imageInput" accept="image/*" webkitdirectory directory multiple style="display:none;">
       <div class="nav-buttons">
         <button id="prevBtn" title="Previous image (Left Arrow)">Previous<br><span class="nav-icon">&#x25C0;</span></button>
         <button id="nextBtn" title="Next image (Right Arrow)">Next<br><span class="nav-icon">&#x25B6;</span></button>
       </div>
-      <div class="nav-buttons">
-        <button id="startRecordBtn" title="Start recording (Spacebar)">Record <span style="font-size:1.5rem; color:red;">&#9679;</span></button>
-        <button id="stopRecordBtn" title="Stop recording (Q)">Stop <span style="font-size:1.5rem; color:black;">&#9632;</span></button>
-      </div>
+      <div id="imageFilename" class="image-filename"></div>
       <p id="timer">00:00 / 05:00</p>
       <audio id="audioPlayback" controls style="display:none;"></audio>
       <div class="step">2. Output Preview</div>
@@ -46,7 +45,10 @@
       <div id="outputPreview"></div>
     </div>
     <div class="right-panel">
-      <div id="imageFilename" class="image-filename"></div>
+      <div class="nav-buttons">
+        <button id="startRecordBtn" title="Start recording (Spacebar)">Record <span style="font-size:1.5rem; color:red;">&#9679;</span></button>
+        <button id="stopRecordBtn" title="Stop recording (Q)">Stop <span style="font-size:1.5rem; color:black;">&#9632;</span></button>
+      </div>
       <div id="imagePreview"></div>
       <div class="image-description">
         <p>Description: your name? who is in the picture? how are they related? what is the picture about? when was picture taken? where was it taken?</p>

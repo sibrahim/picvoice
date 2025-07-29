@@ -1,6 +1,10 @@
 
 body { font-family: sans-serif; text-align: center; margin: 2rem; }
-.step { margin: 2rem 0 1rem; font-size: 2rem; color: #222; }
+.step {
+  margin: 2rem 0 1rem;
+  font-size: 1.2rem;
+  color: #222;
+}
 #imagePreview img { max-width: 100vw; max-height: 80vh; object-fit: contain; margin-top: 1rem; }
 #outputPreview { margin-top: 2rem; }
 .output-image { max-width: 45%; margin-top: 1rem; }
@@ -207,7 +211,7 @@ body, .step, .instructions {
   color: #333;
 }
 .nav-icon {
-  font-size: 2rem;
+  font-size: 2.5rem;
   display: inline-block;
   vertical-align: middle;
   line-height: 1;
@@ -232,4 +236,44 @@ body, .step, .instructions {
 #startRecordBtn, #stopRecordBtn {
   font-size: 1.2rem;
   padding: 0.7rem 1.2rem;
+}
+
+#prevBtn, #nextBtn {
+  /* Restore to default button styles */
+  font-size: 1rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: 8px;
+  border: none;
+  margin: 0 0.5rem;
+  min-width: unset;
+  min-height: unset;
+  width: unset;
+  height: unset;
+  line-height: normal;
+  box-sizing: border-box;
+  display: inline-block;
+  align-items: unset;
+  justify-content: unset;
+}
+
+#prevBtn span, #nextBtn span, .nav-icon {
+}
+
+.select-image-btn {
+  font-size: 1.1rem;
+  padding: 0.6rem 1.2rem;
+  background-color: #f0f0f0;
+  color: #555;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  box-shadow: none;
+}
+.select-image-btn:hover, .select-image-btn:focus {
+  background-color: #e0e0e0;
+  color: #333;
+  border-color: #bbb;
+  outline: none;
 }
