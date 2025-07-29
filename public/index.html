@@ -20,8 +20,8 @@
           <ul style="text-align:left; font-size:1.1rem;">
             <li>Select a folder of images using the file picker.</li>
             <li>Navigate images with the Previous/Next buttons or arrow keys.</li>
-            <li>Press <b>Start Recording</b> (or Spacebar) to record your voice annotation.</li>
-            <li>Press <b>Stop Recording</b> (or Q) to finish and save the annotation.</li>
+            <li>Press <b>Record</b> (or Spacebar) to record your voice annotation.</li>
+            <li>Press <b>Stop</b> (or Q) to finish and save the annotation.</li>
             <li>Download your audio and annotated image from the Output Preview.</li>
           </ul>
           <p style="font-size:1.1rem;">All controls are accessible by keyboard. For help, click this button any time.</p>
@@ -32,12 +32,12 @@
       <!-- <div class="instructions">Use the buttons below or keyboard shortcuts: Spacebar to start recording, Q to stop, arrows to navigate.</div> -->
       <input type="file" id="imageInput" accept="image/*" webkitdirectory directory multiple>
       <div class="nav-buttons">
-        <button id="prevBtn" title="Previous image (Left Arrow)">Previous<br><span style="font-size:2.5rem;">&#x25C0;</span></button>
-        <button id="nextBtn" title="Next image (Right Arrow)">Next ▶</button>
+        <button id="prevBtn" title="Previous image (Left Arrow)">Previous<br><span class="nav-icon">&#x25C0;</span></button>
+        <button id="nextBtn" title="Next image (Right Arrow)">Next<br><span class="nav-icon">&#x25B6;</span></button>
       </div>
       <div class="nav-buttons">
-        <button id="startRecordBtn" title="Start recording (Spacebar)">Start Record</button>
-        <button id="stopRecordBtn" title="Stop recording (Q)">Stop Record</button>
+        <button id="startRecordBtn" title="Start recording (Spacebar)">Record <span style="font-size:1.5rem; color:red;">&#9679;</span></button>
+        <button id="stopRecordBtn" title="Stop recording (Q)">Stop <span style="font-size:1.5rem; color:black;">&#9632;</span></button>
       </div>
       <p id="timer">00:00 / 05:00</p>
       <audio id="audioPlayback" controls style="display:none;"></audio>
