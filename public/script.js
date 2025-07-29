@@ -118,6 +118,7 @@ const startBtn = document.getElementById('startRecordBtn');
 const stopBtn = document.getElementById('stopRecordBtn');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
+const selectImageBtn = document.getElementById('selectImageBtn');
 
 function setRecordingState(isRecording) {
   startBtn.disabled = isRecording;
@@ -128,6 +129,10 @@ function setRecordingState(isRecording) {
   stopBtn.style.opacity = !isRecording ? 0.5 : 1;
   prevBtn.style.opacity = (isRecording || currentIndex === 0) ? 0.5 : 1;
   nextBtn.style.opacity = (isRecording || currentIndex === imageFiles.length - 1) ? 0.5 : 1;
+  if (selectImageBtn) {
+    selectImageBtn.disabled = isRecording;
+    selectImageBtn.style.opacity = isRecording ? 0.5 : 1;
+  }
 }
 
 startBtn.addEventListener('click', async () => {
@@ -248,7 +253,6 @@ window.addEventListener('keydown', (event) => {
 });
 
 // Add event listener for the new select image button
-const selectImageBtn = document.getElementById('selectImageBtn');
 const imageInput = document.getElementById('imageInput');
 if (selectImageBtn && imageInput) {
   selectImageBtn.addEventListener('click', () => imageInput.click());
