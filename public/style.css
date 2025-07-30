@@ -277,3 +277,44 @@ body, .step, .instructions {
   border-color: #bbb;
   outline: none;
 }
+.record-toggle-btn {
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+  background-color: #4CAF50;
+  color: #000;
+  border: 2px solid #2E7D32;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-right: 1rem;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  font-weight: bold;
+  min-width: 100px;
+}
+.record-toggle-btn:hover, .record-toggle-btn:focus {
+  background-color: #45a049;
+  border-color: #1B5E20;
+  outline: none;
+}
+.record-toggle-btn:disabled {
+  background-color: #cccccc;
+  color: #666666;
+  border-color: #999999;
+  cursor: not-allowed;
+}
+.record-toggle-btn.recording {
+  background-color: #f44336;
+  border-color: #d32f2f;
+  color: #000;
+}
+.record-toggle-btn.recording:hover, .record-toggle-btn.recording:focus {
+  background-color: #d32f2f;
+  border-color: #b71c1c;
+  color: #000;
+}
+.recording-status {
+  font-size: 1.1rem;
+  color: #f44336;
+  font-weight: bold;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}

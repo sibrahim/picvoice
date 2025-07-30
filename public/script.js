@@ -114,19 +114,23 @@ document.getElementById('nextBtn').addEventListener('click', () => {
   displayImage();
 });
 
-const startBtn = document.getElementById('startRecordBtn');
-const stopBtn = document.getElementById('stopRecordBtn');
+const recordToggleBtn = document.getElementById('recordToggleBtn');
+const recordingStatus = document.getElementById('recordingStatus');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const selectImageBtn = document.getElementById('selectImageBtn');
 
 function setRecordingState(isRecording) {
-  startBtn.disabled = isRecording;
-  stopBtn.disabled = !isRecording;
+  if (recordToggleBtn) {
+    recordToggleBtn.disabled = false;
+    recordToggleBtn.textContent = isRecording ? 'Press to Stop' : 'Press to Record';
+    recordToggleBtn.classList.toggle('recording', isRecording);
+  }
+  if (recordingStatus) {
+    recordingStatus.style.display = isRecording ? 'inline' : 'none';
+  }
   prevBtn.disabled = isRecording || currentIndex === 0;
   nextBtn.disabled = isRecording || currentIndex === imageFiles.length - 1;
-  startBtn.style.opacity = isRecording ? 0.5 : 1;
-  stopBtn.style.opacity = !isRecording ? 0.5 : 1;
   prevBtn.style.opacity = (isRecording || currentIndex === 0) ? 0.5 : 1;
   nextBtn.style.opacity = (isRecording || currentIndex === imageFiles.length - 1) ? 0.5 : 1;
   if (selectImageBtn) {
@@ -135,50 +139,56 @@ function setRecordingState(isRecording) {
   }
 }
 
-startBtn.addEventListener('click', async () => {
-  if (mediaRecorder && mediaRecorder.state === 'recording') return;
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
-  audioChunks = [];
-  mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-  mediaRecorder.onstop = async () => {
-    audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-    await autoCreateOutput();
-  };
-  mediaRecorder.start();
-  document.getElementById('timer').innerText = "00:00 / 05:00";
-  seconds = 0;
-  timerInterval = setInterval(() => {
-    seconds++;
-    if (seconds >= 300) {
-      mediaRecorder.stop();
-    }
-    const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
-    const secs = String(seconds % 60).padStart(2, '0');
-    document.getElementById('timer').innerText = `${mins}:${secs} / 05:00`;
-  }, 1000);
-  setRecordingState(true);
-});
-
-stopBtn.addEventListener('click', () => {
+recordToggleBtn.addEventListener('click', async () => {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
+    // Stop recording
     mediaRecorder.stop();
     clearInterval(timerInterval);
     setRecordingState(false);
+  } else {
+    // Start recording
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        clearInterval(timerInterval);
+        setRecordingState(false);
+        await autoCreateOutput();
+      };
+      mediaRecorder.start();
+      document.getElementById('timer').innerText = "00:00 / 05:00";
+      seconds = 0;
+      timerInterval = setInterval(() => {
+        seconds++;
+        if (seconds >= 300) {
+          mediaRecorder.stop();
+        }
+        const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+        const secs = String(seconds % 60).padStart(2, '0');
+        document.getElementById('timer').innerText = `${mins}:${secs} / 05:00`;
+      }, 1000);
+      setRecordingState(true);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      alert('Error accessing microphone. Please check permissions.');
+    }
   }
 });
 
 window.addEventListener('keydown', (event) => {
   if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
-  if ((event.key === ' ' || event.key === 'Spacebar') && !startBtn.disabled) {
+  if ((event.key === ' ' || event.key === 'Spacebar') && !recordToggleBtn.disabled) {
     event.preventDefault();
-    startBtn.click();
-  } else if ((event.key === 'q' || event.key === 'Q') && !stopBtn.disabled) {
+    recordToggleBtn.click();
+  } else if ((event.key === 'q' || event.key === 'Q') && !recordToggleBtn.disabled) {
     event.preventDefault();
-    stopBtn.click();
+    recordToggleBtn.click();
   } else if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'PageUp' || event.key === 'PageDown')) {
     // Only allow navigation if not recording
-    if (!startBtn.disabled) {
+    if (!recordToggleBtn.disabled) {
       if ((event.key === 'ArrowLeft' || event.key === 'PageUp') && !prevBtn.disabled) {
         currentIndex--;
         displayImage();
