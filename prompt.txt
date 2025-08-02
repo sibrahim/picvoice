@@ -1,0 +1,73 @@
+There are two tables in picvoice.db
+a) annotiations
+unique_id,user_id,image_filename,mp3_filename,created_at         
+
+b) user
+unique_id,email,created_at    
+
+
+----------------
+
+Can we make the following changes:
+1. In the annotations table, the fields currently are :
+unique_id,user_id,image_filename,mp3_filename,created_at
+
+Instead of duplicating a new image for every voice annotation, when
+the mp3 is recorded, just enter a new entry in the annotations table
+with the current file name. Do not duplicate the image file.
+
+2. In the management display, for each image, just indicate the total
+number of annotations. This may require a sum for the image in question
+
+Clicking the image thumbnail, should bring you to the detail page
+with the larger image, and a list of annotations. For each annotation
+have a play, delete, download small buttons.
+
+---------
+
+There are some problems with the current code.
+Lets simplify the process flow of uploading a folder of images
+
+a) Upload into temp
+b) create a unique filename for the images and put into uploads
+c) clean up temp
+
+Currently it  every time"press to record" is clicked in the primary interface a duplicate of the image is made with a unique filename, and this new filename with the recorded mp3 is entered into the annotations table.
+Please modify the code so that no duplicate image with unique filename is made when
+"press to record" is clicked. Instead create the mp3 and the image filename and mp3 are entered into the annotations databaee.
+
+----------
+
+To simplify matters for elderly users,  in the primary
+interface, when a folder of images is uploaded, only those can be annotated, not
+previous uploads.
+
+There may be a few ways to accomplish this:
+a) Add an image table, with the upload time, perhaps a tag for last-upload and only
+those are displayed in the primary interface.
+or
+b) Modify the process flow for uploading folders
+   i) When a user selects  a new folder to upload, the temp folder is cleared
+   ii) Upload new images into temp folder with modified filenames to ensure no conflict.
+   iii) Copy these images into uploads folder
+   iv) Have the primary interface display images in the temp folder but for every annotation use the path of the corresponding image in the uploads folder.
+
+or
+
+something else ?
+
+
+Please help suggest approaches, pro and cons .
+
+
+
+
+
+
+
+
+
+
+
+
+

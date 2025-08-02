@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PicVoice - Image Management</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="management.css" />
+</head>
+<body>
+  <div class="management-container">
+    <header class="management-header">
+      <h1>PicVoice - Image Management</h1>
+      <div class="user-info">
+        <p><strong>Current User:</strong> testuser@gmail.com</p>
+      </div>
+      <nav class="management-nav">
+        <a href="index.html" class="nav-link">← Back to Recording</a>
+        <button id="uploadBtn" class="upload-btn">Upload New Images</button>
+        <input type="file" id="imageInput" accept="image/*" webkitdirectory directory multiple style="display:none;">
+      </nav>
+    </header>
+
+    <div class="management-controls">
+      <div class="sort-controls">
+        <label for="sortSelect">Sort by:</label>
+        <select id="sortSelect">
+          <option value="name">Name</option>
+          <option value="date">Date Added</option>
+          <option value="annotated">Annotation Status</option>
+        </select>
+        <label for="filterSelect">Filter:</label>
+        <select id="filterSelect">
+          <option value="all">All Images</option>
+          <option value="annotated">Annotated Only</option>
+          <option value="unannotated">Unannotated Only</option>
+        </select>
+      </div>
+      <div class="search-controls">
+        <input type="text" id="searchInput" placeholder="Search images..." />
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <span id="totalImages">Total Images: 0</span>
+      <span id="annotatedImages">Annotated: 0</span>
+      <span id="unannotatedImages">Total Annotations: 0</span>
+    </div>
+
+    <div class="images-grid" id="imagesGrid">
+      <!-- Images will be loaded here -->
+    </div>
+
+    <!-- Image Detail Modal -->
+    <div id="imageModal" class="modal">
+      <div class="modal-content">
+        <span class="close" id="closeModal">×</span>
+        <div class="image-detail">
+          <div class="image-preview">
+            <img id="modalImage" src="" alt="Image preview" />
+          </div>
+          <div class="image-info">
+            <h3 id="modalImageName"></h3>
+            <div class="annotation-status" id="annotationStatus"></div>
+            <div class="annotation-controls" id="annotation-controls">
+              <!-- Annotations list will be rendered here -->
+            </div>
+            <button id="addAnnotation" class="btn btn-success">Add Annotation</button>
+            <div class="annotation-player" id="annotationPlayer" style="display:none;">
+              <audio id="audioPlayer" controls></audio>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recording Modal -->
+    <div id="recordingModal" class="modal">
+      <div class="modal-content">
+        <span class="close" id="closeRecordingModal">×</span>
+        <div class="recording-interface">
+          <h3>Record Annotation</h3>
+          <div class="recording-image">
+            <img id="recordingImage" src="" alt="Image to annotate" />
+          </div>
+          <div class="recording-controls">
+            <button id="recordBtn" class="btn btn-record">Start Recording</button>
+            <button id="stopBtn" class="btn btn-stop" style="display:none;">Stop Recording</button>
+            <div class="timer" id="recordingTimer">00:00</div>
+          </div>
+          <div class="recording-status" id="recordingStatus"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="management.js"></script>
+</body>
+</html> 

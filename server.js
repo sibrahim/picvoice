@@ -169,13 +169,13 @@ app.post('/create-video', async (req, res) => {
           return res.status(400).send('Invalid file types.');
         }
 
-        // Save image to user directory
-        const savedImage = userManager.saveUserFile(user.email, image, image.originalname);
+        // Use existing image file (don't create duplicate)
+        const imageFilename = image.originalname;
         const outputsDir = userManager.getUserOutputsDir(user.email);
         
-        const baseName = path.basename(savedImage.filename, path.extname(savedImage.filename));
+        // Create unique MP3 filename
         const timestamp = Date.now();
-        const outputFileName = `${baseName}_${timestamp}`;
+        const outputFileName = `${path.basename(imageFilename, path.extname(imageFilename))}_${timestamp}`;
 
         if (outputType === 'mp3') {
           const mp3Path = path.join(outputsDir, `${outputFileName}.mp3`);
@@ -197,17 +197,17 @@ app.post('/create-video', async (req, res) => {
             }
 
             try {
-              // Save annotation to database
+              // Save annotation to database using the existing image filename
               const mp3Filename = `${outputFileName}.mp3`;
-              await db.saveAnnotation(user.id, savedImage.filename, mp3Filename);
+              await db.saveAnnotation(user.id, imageFilename, mp3Filename);
 
               // Clean up temp files
               userManager.cleanupUserTemp(user.email);
 
               res.json({ 
                 output_audio: `/users/${user.email}/outputs/${mp3Filename}`,
-                output_image: `/users/${user.email}/uploads/${savedImage.filename}`,
-                image_filename: savedImage.filename,
+                output_image: `/users/${user.email}/uploads/${imageFilename}`,
+                image_filename: imageFilename,
                 mp3_filename: mp3Filename
               });
             } catch (dbError) {
@@ -296,6 +296,89 @@ app.get('/api/annotation/:imageFilename', async (req, res) => {
   } catch (error) {
     console.error('Error getting annotation:', error);
     res.status(500).json({ error: 'Failed to get annotation' });
+  }
+});
+
+// Get all annotations for a specific image
+app.get('/api/image/:imageFilename/annotations', async (req, res) => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return res.status(400).json({ error: 'User not found' });
+    }
+
+    const annotations = await db.getImageAnnotations(user.id, req.params.imageFilename);
+    const formattedAnnotations = annotations.map(annotation => ({
+      id: annotation.id,
+      image_filename: annotation.image_filename,
+      mp3_filename: annotation.mp3_filename,
+      output_audio: `/users/${user.email}/outputs/${annotation.mp3_filename}`,
+      output_image: `/users/${user.email}/uploads/${annotation.image_filename}`,
+      created_at: annotation.created_at
+    }));
+
+    res.json({ annotations: formattedAnnotations });
+  } catch (error) {
+    console.error('Error getting image annotations:', error);
+    res.status(500).json({ error: 'Failed to get image annotations' });
+  }
+});
+
+// Delete annotation
+app.delete('/api/annotation/:imageFilename', async (req, res) => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return res.status(400).json({ error: 'User not found' });
+    }
+
+    const annotation = await db.getAnnotation(user.id, req.params.imageFilename);
+    if (!annotation) {
+      return res.status(404).json({ error: 'Annotation not found' });
+    }
+
+    // Delete the MP3 file
+    const mp3Path = path.join(userManager.getUserOutputsDir(user.email), annotation.mp3_filename);
+    if (fs.existsSync(mp3Path)) {
+      fs.unlinkSync(mp3Path);
+    }
+
+    // Delete from database
+    await db.deleteAnnotation(user.id, req.params.imageFilename);
+
+    res.json({ success: true, message: 'Annotation deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting annotation:', error);
+    res.status(500).json({ error: 'Failed to delete annotation' });
+  }
+});
+
+// Delete annotation by ID
+app.delete('/api/annotation/id/:annotationId', async (req, res) => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return res.status(400).json({ error: 'User not found' });
+    }
+
+    const annotation = await db.getAnnotationById(parseInt(req.params.annotationId));
+    if (!annotation || annotation.user_id !== user.id) {
+      return res.status(404).json({ error: 'Annotation not found' });
+    }
+
+    // Delete the MP3 file
+    const mp3Path = path.join(userManager.getUserOutputsDir(user.email), annotation.mp3_filename);
+    if (fs.existsSync(mp3Path)) {
+      fs.unlinkSync(mp3Path);
+    }
+
+    // Delete from database
+    await db.deleteAnnotationById(parseInt(req.params.annotationId));
+
+    res.json({ success: true, message: 'Annotation deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting annotation:', error);
+    res.status(500).json({ error: 'Failed to delete annotation' });
   }
 });
 

@@ -101,6 +101,27 @@ body, .step, .instructions {
   font-size: 0.9rem;
   color: #1976d2;
 }
+
+.management-link {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.management-link .nav-link {
+  display: inline-block;
+  background: #2196F3;
+  color: white;
+  text-decoration: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: background 0.3s;
+}
+
+.management-link .nav-link:hover {
+  background: #1976D2;
+}
+
 .right-panel {
   flex: 1 1 0;
   display: flex;
