@@ -2,16 +2,69 @@
 let mediaRecorder, audioChunks = [], audioBlob, imageFiles = [], currentIndex = 0, imageFile = null;
 let seconds = 0, timerInterval;
 let savedAnnotations = {};
+let userImages = [];
 
 // iPad-specific enhancements
 const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
 
-document.getElementById('imageInput').addEventListener('change', event => {
-  imageFiles = Array.from(event.target.files).filter(file => file.type.startsWith('image/'));
-  currentIndex = 0;
-  if (imageFiles.length > 0) {
-    displayImage();
-    fetchAnnotations();
+// Load user's images on page load
+window.addEventListener('load', async () => {
+  await loadUserImages();
+});
+
+async function loadUserImages() {
+  try {
+    const response = await fetch('/api/images');
+    const data = await response.json();
+    userImages = data.images;
+    
+    if (userImages.length > 0) {
+      // Convert image filenames to File objects for compatibility
+      imageFiles = userImages.map(filename => ({
+        name: filename,
+        // Create a fake File object with the correct name
+        type: 'image/jpeg' // Assume JPEG for now
+      }));
+      currentIndex = 0;
+      displayImage();
+      fetchAnnotations();
+    }
+  } catch (error) {
+    console.error('Error loading user images:', error);
+  }
+}
+
+// Upload folder of images
+document.getElementById('imageInput').addEventListener('change', async (event) => {
+  const files = Array.from(event.target.files).filter(file => file.type.startsWith('image/'));
+  
+  if (files.length === 0) {
+    alert('No image files found in the selected folder.');
+    return;
+  }
+
+  const formData = new FormData();
+  files.forEach(file => {
+    formData.append('images', file);
+  });
+
+  try {
+    const response = await fetch('/upload-images', {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      alert(`Successfully uploaded ${result.uploaded} images!`);
+      await loadUserImages(); // Reload the user's images
+    } else {
+      alert('Upload failed: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Upload error:', error);
+    alert('Upload failed. Please try again.');
   }
 });
 
@@ -77,8 +130,11 @@ function displayImage() {
   }
   imageFile = imageFiles[currentIndex];
   document.getElementById('imageFilename').innerText = imageFile.name || '';
+  
+  // Create image element with user-specific path
   const img = document.createElement('img');
-  img.src = URL.createObjectURL(imageFile);
+  img.src = `/users/testuser@gmail.com/uploads/${imageFile.name}`;
+  
   const preview = document.getElementById('imagePreview');
   preview.innerHTML = '';
   preview.appendChild(img);
@@ -86,88 +142,83 @@ function displayImage() {
   loadAnnotation(imageFile.name);
 }
 
-function loadAnnotation(filename) {
+async function loadAnnotation(filename) {
   const outputDiv = document.getElementById('outputPreview');
   outputDiv.innerHTML = '';
   document.getElementById('status').innerText = '';
 
-  if (savedAnnotations[filename]) {
-    const a = savedAnnotations[filename];
-    let html = '';
-    html += `<audio controls src="${a.output_audio}" class="centered"></audio><br>`;
-    html += `<a href="${a.output_audio}" download>Download MP3</a><br>`;
-    html += `<a href="${a.output_image}" download>Download Image</a>`;
-    document.getElementById('status').innerText = '✅ Previously Annotated';
-    outputDiv.innerHTML = html;
+  try {
+    const response = await fetch(`/api/annotation/${encodeURIComponent(filename)}`);
+    const annotation = await response.json();
+    
+    if (annotation) {
+      let html = '';
+      html += `<audio controls src="${annotation.output_audio}" class="centered"></audio><br>`;
+      html += `<a href="${annotation.output_audio}" download>Download MP3</a><br>`;
+      html += `<a href="${annotation.output_image}" download>Download Image</a>`;
+      document.getElementById('status').innerText = '✅ Previously Annotated';
+      outputDiv.innerHTML = html;
+    }
+  } catch (error) {
+    console.error('Error loading annotation:', error);
   }
 }
-
-document.getElementById('prevBtn').addEventListener('click', () => {
-  if (imageFiles.length === 0 || currentIndex === 0) return;
-  currentIndex--;
-  displayImage();
-});
-
-document.getElementById('nextBtn').addEventListener('click', () => {
-  if (imageFiles.length === 0 || currentIndex === imageFiles.length - 1) return;
-  currentIndex++;
-  displayImage();
-});
-
-const recordToggleBtn = document.getElementById('recordToggleBtn');
-const recordingStatus = document.getElementById('recordingStatus');
-const prevBtn = document.getElementById('prevBtn');
-const nextBtn = document.getElementById('nextBtn');
-const selectImageBtn = document.getElementById('selectImageBtn');
 
 function setRecordingState(isRecording) {
-  if (recordToggleBtn) {
-    recordToggleBtn.disabled = false;
-    recordToggleBtn.textContent = isRecording ? 'Press to Stop' : 'Press to Record';
-    recordToggleBtn.classList.toggle('recording', isRecording);
-  }
-  if (recordingStatus) {
-    recordingStatus.style.display = isRecording ? 'inline' : 'none';
-  }
-  prevBtn.disabled = isRecording || currentIndex === 0;
-  nextBtn.disabled = isRecording || currentIndex === imageFiles.length - 1;
-  prevBtn.style.opacity = (isRecording || currentIndex === 0) ? 0.5 : 1;
-  nextBtn.style.opacity = (isRecording || currentIndex === imageFiles.length - 1) ? 0.5 : 1;
-  if (selectImageBtn) {
-    selectImageBtn.disabled = isRecording;
-    selectImageBtn.style.opacity = isRecording ? 0.5 : 1;
+  const recordToggleBtn = document.getElementById('recordToggleBtn');
+  const recordingStatus = document.getElementById('recordingStatus');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+
+  if (isRecording) {
+    recordToggleBtn.textContent = 'Stop Recording';
+    recordToggleBtn.style.backgroundColor = '#ff4444';
+    recordingStatus.style.display = 'inline';
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+  } else {
+    recordToggleBtn.textContent = 'Press to Record';
+    recordToggleBtn.style.backgroundColor = '#4CAF50';
+    recordingStatus.style.display = 'none';
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
   }
 }
 
+const recordToggleBtn = document.getElementById('recordToggleBtn');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+
 recordToggleBtn.addEventListener('click', async () => {
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    // Stop recording
-    mediaRecorder.stop();
-    clearInterval(timerInterval);
-    setRecordingState(false);
-  } else {
-    // Start recording
+  if (!imageFile) {
+    alert('Please select an image first.');
+    return;
+  }
+
+  if (!mediaRecorder || mediaRecorder.state === 'inactive') {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(stream);
       audioChunks = [];
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        clearInterval(timerInterval);
-        setRecordingState(false);
-        await autoCreateOutput();
-      };
-      mediaRecorder.start();
-      document.getElementById('timer').innerText = "00:00 / 05:00";
       seconds = 0;
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        document.getElementById('audioPlayback').src = audioUrl;
+        document.getElementById('audioPlayback').style.display = 'block';
+        autoCreateOutput();
+      };
+
+      mediaRecorder.start();
       timerInterval = setInterval(() => {
         seconds++;
-        if (seconds >= 300) {
-          mediaRecorder.stop();
-        }
-        const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
-        const secs = String(seconds % 60).padStart(2, '0');
+        const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const secs = (seconds % 60).toString().padStart(2, '0');
         document.getElementById('timer').innerText = `${mins}:${secs} / 05:00`;
       }, 1000);
       setRecordingState(true);
@@ -175,6 +226,24 @@ recordToggleBtn.addEventListener('click', async () => {
       console.error('Error accessing microphone:', error);
       alert('Error accessing microphone. Please check permissions.');
     }
+  } else {
+    mediaRecorder.stop();
+    clearInterval(timerInterval);
+    setRecordingState(false);
+  }
+});
+
+prevBtn.addEventListener('click', () => {
+  if (currentIndex > 0) {
+    currentIndex--;
+    displayImage();
+  }
+});
+
+nextBtn.addEventListener('click', () => {
+  if (currentIndex < imageFiles.length - 1) {
+    currentIndex++;
+    displayImage();
   }
 });
 
@@ -207,37 +276,59 @@ async function autoCreateOutput() {
   }
 
   const formData = new FormData();
-  formData.append('image', imageFile);
+  
+  // Create a File object from the image filename
+  const imageResponse = await fetch(`/users/testuser@gmail.com/uploads/${imageFile.name}`);
+  const imageBlob = await imageResponse.blob();
+  const imageFileObj = new File([imageBlob], imageFile.name, { type: 'image/jpeg' });
+  
+  formData.append('image', imageFileObj);
   formData.append('audio', audioBlob);
   formData.append('output', 'mp3');
 
   document.getElementById('status').innerText = 'Creating...';
   document.getElementById('outputPreview').innerHTML = '';
 
-  const response = await fetch('/create-video', {
-    method: 'POST',
-    body: formData
-  });
+  try {
+    const response = await fetch('/create-video', {
+      method: 'POST',
+      body: formData
+    });
 
-  const result = await response.json();
-  const outputDiv = document.getElementById('outputPreview');
-  let html = '';
+    const result = await response.json();
+    const outputDiv = document.getElementById('outputPreview');
+    let html = '';
 
-  if (result.output_audio && result.output_image) {
-    savedAnnotations[imageFile.name] = result;
-    html += `<audio controls src="${result.output_audio}" class="centered"></audio><br>`;
-    html += `<a href="${result.output_audio}" download>Download MP3</a><br>`;
-    html += `<a href="${result.output_image}" download>Download Image</a>`;
+    if (result.output_audio && result.output_image) {
+      html += `<audio controls src="${result.output_audio}" class="centered"></audio><br>`;
+      html += `<a href="${result.output_audio}" download>Download MP3</a><br>`;
+      html += `<a href="${result.output_image}" download>Download Image</a>`;
+    }
+
+    document.getElementById('status').innerText = '✅ Done!';
+    outputDiv.innerHTML = html;
+  } catch (error) {
+    console.error('Error creating output:', error);
+    document.getElementById('status').innerText = '❌ Error creating output';
   }
-
-  document.getElementById('status').innerText = '✅ Done!';
-  outputDiv.innerHTML = html;
 }
 
 async function fetchAnnotations() {
-  const res = await fetch('/annotations.json');
-  if (res.ok) {
-    savedAnnotations = await res.json();
+  try {
+    const response = await fetch('/api/annotations');
+    const data = await response.json();
+    
+    // Convert database annotations to the format expected by the frontend
+    savedAnnotations = {};
+    data.annotations.forEach(annotation => {
+      savedAnnotations[annotation.image_filename] = {
+        output_audio: `/users/testuser@gmail.com/outputs/${annotation.mp3_filename}`,
+        output_image: `/users/testuser@gmail.com/uploads/${annotation.image_filename}`,
+        timestamp: annotation.created_at
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching annotations:', error);
   }
   displayImage();
 }
@@ -264,6 +355,7 @@ window.addEventListener('keydown', (event) => {
 
 // Add event listener for the new select image button
 const imageInput = document.getElementById('imageInput');
+const selectImageBtn = document.getElementById('selectImageBtn');
 if (selectImageBtn && imageInput) {
   selectImageBtn.addEventListener('click', () => imageInput.click());
 }

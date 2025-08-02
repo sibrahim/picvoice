@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PicVoice Prototype</title>
+  <title>PicVoice Multi-User Prototype</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,26 +12,29 @@
   <div class="main-flex">
     <div class="left-panel">
       <h1 class="app-title">PicVoice</h1>
+      <div class="user-info">
+        <p><strong>Current User:</strong> testuser@gmail.com</p>
+      </div>
       <div id="helpModal" class="modal" style="display:none;">
         <div class="modal-content">
           <span class="close" id="closeHelp">×</span>
           <button class="modal-close-btn" id="modalCloseBtn">Close</button>
           <h2>How to Use PicVoice</h2>
           <ul style="text-align:left; font-size:1.1rem;">
-            <li>Select a folder of images using the file picker.</li>
+            <li>Select a folder of images using the file picker to upload them to your account.</li>
             <li>Navigate images with the Previous/Next buttons or arrow keys.</li>
             <li>Press <b>Record</b> (or Spacebar) to record your voice annotation.</li>
             <li>Press <b>Stop</b> (or Q) to finish and save the annotation.</li>
             <li>Download your audio and annotated image from the Output Preview.</li>
+            <li>All annotations are saved to your personal database.</li>
           </ul>
           <p style="font-size:1.1rem;">All controls are accessible by keyboard. For help, click this button any time.</p>
         </div>
       </div>
       <div class="step">
-        <button id="selectImageBtn" class="select-image-btn" type="button">1. Select folder</button>
+        <button id="selectImageBtn" class="select-image-btn" type="button">1. Upload folder of images</button>
       </div>
       <button id="helpBtn" class="help-btn" title="Show instructions">?</button>
-      <!-- <div class="instructions">Use the buttons below or keyboard shortcuts: Spacebar to start recording, Q to stop, arrows to navigate.</div> -->
       <input type="file" id="imageInput" accept="image/*" webkitdirectory directory multiple style="display:none;">
       <div class="nav-buttons">
         <button id="prevBtn" title="Previous image (Left Arrow)">Previous<br><span class="nav-icon">&#x25C0;</span></button>
