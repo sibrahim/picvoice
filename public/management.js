@@ -7,25 +7,61 @@ let audioChunks = [];
 let recordingTimer = null;
 let recordingSeconds = 0;
 
+// Simple test to verify JavaScript is loading
+console.log('Management.js loaded successfully');
+alert('Management page JavaScript loaded!');
+
 // Load data on page load
 window.addEventListener('load', async () => {
+  console.log('Management page loaded, starting initialization...');
+  
+  // Test if DOM elements exist
+  const testElements = [
+    'imagesGrid',
+    'totalImages', 
+    'annotatedImages',
+    'unannotatedImages',
+    'sortSelect',
+    'filterSelect',
+    'searchInput'
+  ];
+  
+  const missingElements = testElements.filter(id => !document.getElementById(id));
+  if (missingElements.length > 0) {
+    console.error('Missing DOM elements:', missingElements);
+    return;
+  }
+  
+  console.log('All required DOM elements found, loading data...');
+  
   await loadImages();
   await loadAnnotations();
   renderImages();
   updateStats();
+  
+  console.log('Management page initialization complete');
 });
 
 // Load user's images
 async function loadImages() {
   try {
-    const response = await fetch('/api/images');
+    console.log('Loading images for management page...');
+    const response = await fetch('/api/all-images');
     const data = await response.json();
-    images = data.images.map(filename => ({
-      filename,
-      name: filename,
-      url: `/users/testuser@gmail.com/uploads/${filename}`,
-      hasAnnotation: false
+    console.log('Raw images data:', data);
+    images = data.images.map(img => ({
+      id: img.id,
+      filename: img.filename,
+      name: img.original_filename || img.filename,
+      url: img.url || `/users/testuser@gmail.com/uploads/${img.filename}`,
+      upload_time: img.upload_time,
+      session_id: img.session_id,
+      is_favorite: img.is_favorite,
+      tags: img.tags,
+      hasAnnotation: false,
+      annotationCount: 0
     }));
+    console.log('Processed images:', images);
   } catch (error) {
     console.error('Error loading images:', error);
   }
@@ -34,8 +70,10 @@ async function loadImages() {
 // Load user's annotations
 async function loadAnnotations() {
   try {
+    console.log('Loading annotations for management page...');
     const response = await fetch('/api/annotations');
     const data = await response.json();
+    console.log('Raw annotations data:', data);
     
     annotations = {};
     data.annotations.forEach(annotation => {
@@ -49,12 +87,14 @@ async function loadAnnotations() {
         created_at: annotation.created_at
       });
     });
+    console.log('Processed annotations:', annotations);
     
     // Update image annotation status
     images.forEach(image => {
       image.annotationCount = annotations[image.filename] ? annotations[image.filename].length : 0;
       image.hasAnnotation = image.annotationCount > 0;
     });
+    console.log('Updated images with annotation status:', images);
   } catch (error) {
     console.error('Error loading annotations:', error);
   }
@@ -62,10 +102,14 @@ async function loadAnnotations() {
 
 // Render images grid
 function renderImages() {
+  console.log('Rendering images grid...');
   const grid = document.getElementById('imagesGrid');
   const sortBy = document.getElementById('sortSelect').value;
   const filterBy = document.getElementById('filterSelect').value;
   const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+  
+  console.log('Filter/sort settings:', { sortBy, filterBy, searchTerm });
+  console.log('Total images to render:', images.length);
   
   // Filter and sort images
   let filteredImages = images.filter(image => {
@@ -77,13 +121,15 @@ function renderImages() {
     return matchesSearch && matchesFilter;
   });
   
+  console.log('Filtered images:', filteredImages.length);
+  
   // Sort images
   filteredImages.sort((a, b) => {
     switch (sortBy) {
       case 'name':
         return a.name.localeCompare(b.name);
       case 'date':
-        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        return new Date(b.upload_time || 0) - new Date(a.upload_time || 0);
       case 'annotated':
         return (b.hasAnnotation ? 1 : 0) - (a.hasAnnotation ? 1 : 0);
       default:
@@ -92,7 +138,7 @@ function renderImages() {
   });
   
   // Generate HTML
-  grid.innerHTML = filteredImages.map(image => `
+  const html = filteredImages.map(image => `
     <div class="image-card" onclick="openImageModal('${image.filename}')">
       <img src="${image.url}" alt="${image.name}" />
       <div class="image-card-info">
@@ -104,13 +150,19 @@ function renderImages() {
       </div>
     </div>
   `).join('');
+  
+  console.log('Generated HTML length:', html.length);
+  grid.innerHTML = html;
 }
 
 // Update statistics
 function updateStats() {
+  console.log('Updating stats...');
   const total = images.length;
   const annotated = images.filter(img => img.hasAnnotation).length;
   const totalAnnotations = images.reduce((sum, img) => sum + img.annotationCount, 0);
+  
+  console.log('Stats:', { total, annotated, totalAnnotations });
   
   document.getElementById('totalImages').textContent = `Total Images: ${total}`;
   document.getElementById('annotatedImages').textContent = `Annotated: ${annotated}`;

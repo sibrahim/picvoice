@@ -58,68 +58,135 @@ function createUserStorage(userEmail) {
   });
 }
 
-// Upload multiple images endpoint
+// Upload images endpoint
 app.post('/upload-images', async (req, res) => {
   try {
-    const user = await getCurrentUser();
+    const user = await db.getUser(DEFAULT_USER);
     if (!user) {
-      return res.status(400).json({ error: 'User not found' });
+      return res.status(404).send('User not found');
     }
 
-    // Create user-specific upload middleware
-    const userUpload = multer({ storage: createUserStorage(user.email) });
-    
-    // Use the user-specific upload middleware
+    // Create user-specific multer storage
+    const userUpload = multer({
+      storage: createUserStorage(user.email),
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+          cb(null, true);
+        } else {
+          cb(new Error('Only image files are allowed'));
+        }
+      }
+    });
+
     userUpload.array('images')(req, res, async (err) => {
       if (err) {
-        console.error('Upload error:', err);
-        return res.status(500).json({ error: 'Upload failed' });
+        return res.status(400).send(err.message);
+      }
+
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).send('No images uploaded');
       }
 
       try {
-        const uploadedFiles = [];
-        
+        // Generate new session ID for this upload
+        const sessionId = Date.now();
+        const savedImages = [];
+
+        // Process each uploaded file
         for (const file of req.files) {
-          if (!file.mimetype.startsWith('image/')) {
-            continue; // Skip non-image files
-          }
+          const savedImage = userManager.saveUserFile(user.email, file, file.originalname);
+          savedImages.push(savedImage);
           
-          const savedFile = userManager.saveUserFile(user.email, file, file.originalname);
-          uploadedFiles.push(savedFile);
+          // Save image info to database
+          await db.saveImage(user.id, savedImage.filename, file.originalname, sessionId);
         }
 
         // Clean up temp files
         userManager.cleanupUserTemp(user.email);
 
         res.json({ 
-          success: true, 
-          uploaded: uploadedFiles.length,
-          files: uploadedFiles.map(f => f.filename)
+          message: `${savedImages.length} images uploaded successfully`,
+          sessionId: sessionId,
+          images: savedImages.map(img => ({
+            filename: img.filename,
+            originalName: img.originalName,
+            url: `/users/${user.email}/uploads/${img.filename}`
+          }))
         });
       } catch (error) {
-        console.error('Processing error:', error);
-        res.status(500).json({ error: 'Processing failed' });
+        console.error('Error processing upload:', error);
+        res.status(500).send('Upload processing failed');
       }
     });
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ error: 'Upload failed' });
+    res.status(500).send('Upload failed');
   }
 });
 
-// Get user's images
+// Get images endpoint - returns only current session images
 app.get('/api/images', async (req, res) => {
   try {
-    const user = await getCurrentUser();
+    const user = await db.getUser(DEFAULT_USER);
     if (!user) {
-      return res.status(400).json({ error: 'User not found' });
+      return res.status(404).send('User not found');
     }
 
-    const images = userManager.getUserImages(user.email);
-    res.json({ images });
+    const images = await db.getCurrentSessionImages(user.id);
+    res.json({ images: images.map(img => ({
+      id: img.id,
+      filename: img.filename,
+      original_filename: img.original_filename,
+      upload_time: img.upload_time,
+      session_id: img.session_id,
+      is_favorite: img.is_favorite,
+      tags: img.tags,
+      url: `/users/${user.email}/uploads/${img.filename}`
+    })) });
   } catch (error) {
     console.error('Error getting images:', error);
-    res.status(500).json({ error: 'Failed to get images' });
+    res.status(500).send('Failed to get images');
+  }
+});
+
+// Get all images for management interface
+app.get('/api/all-images', async (req, res) => {
+  try {
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const images = await db.getAllImages(user.id);
+    res.json({ images: images.map(img => ({
+      id: img.id,
+      filename: img.filename,
+      original_filename: img.original_filename,
+      upload_time: img.upload_time,
+      session_id: img.session_id,
+      is_favorite: img.is_favorite,
+      tags: img.tags,
+      url: `/users/${user.email}/uploads/${img.filename}`
+    })) });
+  } catch (error) {
+    console.error('Error getting all images:', error);
+    res.status(500).send('Failed to get all images');
+  }
+});
+
+// Get sessions for management interface
+app.get('/api/sessions', async (req, res) => {
+  try {
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const sessions = await db.getSessions(user.id);
+    res.json({ sessions });
+  } catch (error) {
+    console.error('Error getting sessions:', error);
+    res.status(500).send('Failed to get sessions');
   }
 });
 
@@ -197,9 +264,13 @@ app.post('/create-video', async (req, res) => {
             }
 
             try {
+              // Get the session_id for this image
+              const imageInfo = await db.getImageById(imageFilename);
+              const sessionId = imageInfo ? imageInfo.session_id : Date.now();
+              
               // Save annotation to database using the existing image filename
               const mp3Filename = `${outputFileName}.mp3`;
-              await db.saveAnnotation(user.id, imageFilename, mp3Filename);
+              await db.saveAnnotation(user.id, imageFilename, mp3Filename, sessionId);
 
               // Clean up temp files
               userManager.cleanupUserTemp(user.email);
@@ -208,7 +279,8 @@ app.post('/create-video', async (req, res) => {
                 output_audio: `/users/${user.email}/outputs/${mp3Filename}`,
                 output_image: `/users/${user.email}/uploads/${imageFilename}`,
                 image_filename: imageFilename,
-                mp3_filename: mp3Filename
+                mp3_filename: mp3Filename,
+                session_id: sessionId
               });
             } catch (dbError) {
               console.error('Database error:', dbError);
@@ -274,30 +346,7 @@ app.post('/create-video', async (req, res) => {
 });
 
 // Get annotation for specific image
-app.get('/api/annotation/:imageFilename', async (req, res) => {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return res.status(400).json({ error: 'User not found' });
-    }
-
-    const annotation = await db.getAnnotation(user.id, req.params.imageFilename);
-    if (annotation) {
-      res.json({
-        image_filename: annotation.image_filename,
-        mp3_filename: annotation.mp3_filename,
-        output_audio: `/users/${user.email}/outputs/${annotation.mp3_filename}`,
-        output_image: `/users/${user.email}/uploads/${annotation.image_filename}`,
-        created_at: annotation.created_at
-      });
-    } else {
-      res.json(null);
-    }
-  } catch (error) {
-    console.error('Error getting annotation:', error);
-    res.status(500).json({ error: 'Failed to get annotation' });
-  }
-});
+// Legacy endpoint removed - using /api/image/:imageFilename/annotations instead
 
 // Get all annotations for a specific image
 app.get('/api/image/:imageFilename/annotations', async (req, res) => {
@@ -324,61 +373,106 @@ app.get('/api/image/:imageFilename/annotations', async (req, res) => {
   }
 });
 
-// Delete annotation
-app.delete('/api/annotation/:imageFilename', async (req, res) => {
+// Legacy endpoint removed - using /api/annotation/id/:annotationId instead
+
+// Delete annotation by ID (new endpoint)
+app.delete('/api/annotation/id/:annotationId', async (req, res) => {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return res.status(400).json({ error: 'User not found' });
+    const annotationId = parseInt(req.params.annotationId);
+    const result = await db.deleteAnnotationById(annotationId);
+    
+    if (result > 0) {
+      res.json({ success: true, message: 'Annotation deleted successfully' });
+    } else {
+      res.status(404).send('Annotation not found');
     }
-
-    const annotation = await db.getAnnotation(user.id, req.params.imageFilename);
-    if (!annotation) {
-      return res.status(404).json({ error: 'Annotation not found' });
-    }
-
-    // Delete the MP3 file
-    const mp3Path = path.join(userManager.getUserOutputsDir(user.email), annotation.mp3_filename);
-    if (fs.existsSync(mp3Path)) {
-      fs.unlinkSync(mp3Path);
-    }
-
-    // Delete from database
-    await db.deleteAnnotation(user.id, req.params.imageFilename);
-
-    res.json({ success: true, message: 'Annotation deleted successfully' });
   } catch (error) {
     console.error('Error deleting annotation:', error);
-    res.status(500).json({ error: 'Failed to delete annotation' });
+    res.status(500).send('Failed to delete annotation');
   }
 });
 
-// Delete annotation by ID
-app.delete('/api/annotation/id/:annotationId', async (req, res) => {
+// Toggle favorite status
+app.put('/api/image/:imageId/favorite', async (req, res) => {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return res.status(400).json({ error: 'User not found' });
+    const imageId = parseInt(req.params.imageId);
+    const result = await db.toggleFavorite(imageId);
+    
+    if (result > 0) {
+      res.json({ success: true, message: 'Favorite status updated' });
+    } else {
+      res.status(404).send('Image not found');
     }
-
-    const annotation = await db.getAnnotationById(parseInt(req.params.annotationId));
-    if (!annotation || annotation.user_id !== user.id) {
-      return res.status(404).json({ error: 'Annotation not found' });
-    }
-
-    // Delete the MP3 file
-    const mp3Path = path.join(userManager.getUserOutputsDir(user.email), annotation.mp3_filename);
-    if (fs.existsSync(mp3Path)) {
-      fs.unlinkSync(mp3Path);
-    }
-
-    // Delete from database
-    await db.deleteAnnotationById(parseInt(req.params.annotationId));
-
-    res.json({ success: true, message: 'Annotation deleted successfully' });
   } catch (error) {
-    console.error('Error deleting annotation:', error);
-    res.status(500).json({ error: 'Failed to delete annotation' });
+    console.error('Error toggling favorite:', error);
+    res.status(500).send('Failed to update favorite status');
+  }
+});
+
+// Update image tags
+app.put('/api/image/:imageId/tags', async (req, res) => {
+  try {
+    const imageId = parseInt(req.params.imageId);
+    const { tags } = req.body;
+    
+    if (tags === undefined) {
+      return res.status(400).send('Tags are required');
+    }
+    
+    const result = await db.updateImageTags(imageId, tags);
+    
+    if (result > 0) {
+      res.json({ success: true, message: 'Tags updated successfully' });
+    } else {
+      res.status(404).send('Image not found');
+    }
+  } catch (error) {
+    console.error('Error updating tags:', error);
+    res.status(500).send('Failed to update tags');
+  }
+});
+
+// Soft delete image
+app.delete('/api/image/:imageId', async (req, res) => {
+  try {
+    const imageId = parseInt(req.params.imageId);
+    const result = await db.softDeleteImage(imageId);
+    
+    if (result > 0) {
+      res.json({ success: true, message: 'Image deleted successfully' });
+    } else {
+      res.status(404).send('Image not found');
+    }
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    res.status(500).send('Failed to delete image');
+  }
+});
+
+// Get images by session
+app.get('/api/session/:sessionId/images', async (req, res) => {
+  try {
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const sessionId = parseInt(req.params.sessionId);
+    const images = await db.getImagesBySession(user.id, sessionId);
+    
+    res.json({ images: images.map(img => ({
+      id: img.id,
+      filename: img.filename,
+      original_filename: img.original_filename,
+      upload_time: img.upload_time,
+      session_id: img.session_id,
+      is_favorite: img.is_favorite,
+      tags: img.tags,
+      url: `/users/${user.email}/uploads/${img.filename}`
+    })) });
+  } catch (error) {
+    console.error('Error getting session images:', error);
+    res.status(500).send('Failed to get session images');
   }
 });
 

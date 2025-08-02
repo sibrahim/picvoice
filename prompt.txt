@@ -64,6 +64,12 @@ Please help suggest approaches, pro and cons .
 
 
 
+-------
+Questions
+1. What model is cursor using
+2. WHat are my credits at anthropic for claude
+3. How do you copy and paste w/ context
+4. why does the system lose track
 
 
 

@@ -14,20 +14,25 @@ window.addEventListener('load', async () => {
 
 async function loadUserImages() {
   try {
+    console.log('Loading user images...');
     const response = await fetch('/api/images');
     const data = await response.json();
     userImages = data.images;
+    console.log('Loaded images:', userImages);
     
     if (userImages.length > 0) {
-      // Convert image filenames to File objects for compatibility
-      imageFiles = userImages.map(filename => ({
-        name: filename,
+      // Convert image objects to File-like objects for compatibility
+      imageFiles = userImages.map(img => ({
+        name: img.filename,
         // Create a fake File object with the correct name
         type: 'image/jpeg' // Assume JPEG for now
       }));
+      console.log('Converted imageFiles:', imageFiles);
       currentIndex = 0;
       displayImage();
       fetchAnnotations();
+    } else {
+      console.log('No images found');
     }
   } catch (error) {
     console.error('Error loading user images:', error);
@@ -54,13 +59,20 @@ document.getElementById('imageInput').addEventListener('change', async (event) =
       body: formData
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      alert('Upload failed: ' + errorText);
+      return;
+    }
+
     const result = await response.json();
     
-    if (result.success) {
-      alert(`Successfully uploaded ${result.uploaded} images!`);
+    if (result.message) {
+      alert(result.message);
       await loadUserImages(); // Reload the user's images
     } else {
-      alert('Upload failed: ' + result.error);
+      alert('Upload completed successfully!');
+      await loadUserImages(); // Reload the user's images
     }
   } catch (error) {
     console.error('Upload error:', error);
@@ -124,16 +136,20 @@ function updateNavButtons() {
 }
 
 function displayImage() {
+  console.log('displayImage called, imageFiles.length:', imageFiles.length);
   if (imageFiles.length === 0) {
+    console.log('No image files to display');
     document.getElementById('imageFilename').innerText = '';
     return;
   }
   imageFile = imageFiles[currentIndex];
+  console.log('Current imageFile:', imageFile);
   document.getElementById('imageFilename').innerText = imageFile.name || '';
   
   // Create image element with user-specific path
   const img = document.createElement('img');
   img.src = `/users/testuser@gmail.com/uploads/${imageFile.name}`;
+  console.log('Image src:', img.src);
   
   const preview = document.getElementById('imagePreview');
   preview.innerHTML = '';
@@ -148,15 +164,17 @@ async function loadAnnotation(filename) {
   document.getElementById('status').innerText = '';
 
   try {
-    const response = await fetch(`/api/annotation/${encodeURIComponent(filename)}`);
-    const annotation = await response.json();
+    const response = await fetch(`/api/image/${encodeURIComponent(filename)}/annotations`);
+    const data = await response.json();
     
-    if (annotation) {
+    if (data.annotations && data.annotations.length > 0) {
+      // Use the most recent annotation
+      const annotation = data.annotations[0];
       let html = '';
       html += `<audio controls src="${annotation.output_audio}" class="centered"></audio><br>`;
       html += `<a href="${annotation.output_audio}" download>Download MP3</a><br>`;
       html += `<a href="${annotation.output_image}" download>Download Image</a>`;
-      document.getElementById('status').innerText = '✅ Previously Annotated';
+      document.getElementById('status').innerText = `✅ Previously Annotated (${data.annotations.length} annotation${data.annotations.length > 1 ? 's' : ''})`;
       outputDiv.innerHTML = html;
     }
   } catch (error) {
