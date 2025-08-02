@@ -7,48 +7,19 @@ let audioChunks = [];
 let recordingTimer = null;
 let recordingSeconds = 0;
 
-// Simple test to verify JavaScript is loading
-console.log('Management.js loaded successfully');
-alert('Management page JavaScript loaded!');
-
 // Load data on page load
 window.addEventListener('load', async () => {
-  console.log('Management page loaded, starting initialization...');
-  
-  // Test if DOM elements exist
-  const testElements = [
-    'imagesGrid',
-    'totalImages', 
-    'annotatedImages',
-    'unannotatedImages',
-    'sortSelect',
-    'filterSelect',
-    'searchInput'
-  ];
-  
-  const missingElements = testElements.filter(id => !document.getElementById(id));
-  if (missingElements.length > 0) {
-    console.error('Missing DOM elements:', missingElements);
-    return;
-  }
-  
-  console.log('All required DOM elements found, loading data...');
-  
   await loadImages();
   await loadAnnotations();
   renderImages();
   updateStats();
-  
-  console.log('Management page initialization complete');
 });
 
 // Load user's images
 async function loadImages() {
   try {
-    console.log('Loading images for management page...');
     const response = await fetch('/api/all-images');
     const data = await response.json();
-    console.log('Raw images data:', data);
     images = data.images.map(img => ({
       id: img.id,
       filename: img.filename,
@@ -61,7 +32,6 @@ async function loadImages() {
       hasAnnotation: false,
       annotationCount: 0
     }));
-    console.log('Processed images:', images);
   } catch (error) {
     console.error('Error loading images:', error);
   }
@@ -70,10 +40,8 @@ async function loadImages() {
 // Load user's annotations
 async function loadAnnotations() {
   try {
-    console.log('Loading annotations for management page...');
     const response = await fetch('/api/annotations');
     const data = await response.json();
-    console.log('Raw annotations data:', data);
     
     annotations = {};
     data.annotations.forEach(annotation => {
@@ -87,14 +55,12 @@ async function loadAnnotations() {
         created_at: annotation.created_at
       });
     });
-    console.log('Processed annotations:', annotations);
     
     // Update image annotation status
     images.forEach(image => {
       image.annotationCount = annotations[image.filename] ? annotations[image.filename].length : 0;
       image.hasAnnotation = image.annotationCount > 0;
     });
-    console.log('Updated images with annotation status:', images);
   } catch (error) {
     console.error('Error loading annotations:', error);
   }
@@ -102,14 +68,10 @@ async function loadAnnotations() {
 
 // Render images grid
 function renderImages() {
-  console.log('Rendering images grid...');
   const grid = document.getElementById('imagesGrid');
   const sortBy = document.getElementById('sortSelect').value;
   const filterBy = document.getElementById('filterSelect').value;
   const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-  
-  console.log('Filter/sort settings:', { sortBy, filterBy, searchTerm });
-  console.log('Total images to render:', images.length);
   
   // Filter and sort images
   let filteredImages = images.filter(image => {
@@ -120,8 +82,6 @@ function renderImages() {
     
     return matchesSearch && matchesFilter;
   });
-  
-  console.log('Filtered images:', filteredImages.length);
   
   // Sort images
   filteredImages.sort((a, b) => {
@@ -151,18 +111,14 @@ function renderImages() {
     </div>
   `).join('');
   
-  console.log('Generated HTML length:', html.length);
   grid.innerHTML = html;
 }
 
 // Update statistics
 function updateStats() {
-  console.log('Updating stats...');
   const total = images.length;
   const annotated = images.filter(img => img.hasAnnotation).length;
   const totalAnnotations = images.reduce((sum, img) => sum + img.annotationCount, 0);
-  
-  console.log('Stats:', { total, annotated, totalAnnotations });
   
   document.getElementById('totalImages').textContent = `Total Images: ${total}`;
   document.getElementById('annotatedImages').textContent = `Annotated: ${annotated}`;
@@ -318,6 +274,39 @@ async function deleteAnnotationById(annotationId) {
   } catch (error) {
     console.error('Error deleting annotation:', error);
     alert('Error deleting annotation');
+  }
+}
+
+// Delete image with confirmation
+async function deleteImage(imageId) {
+  if (!confirm('Are you sure you want to delete this image? This will also delete all associated annotations and cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/image/${imageId}`, {
+      method: 'DELETE'
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      alert('Image deleted successfully!');
+      
+      // Reload data and refresh UI
+      await loadImages();
+      await loadAnnotations();
+      renderImages();
+      updateStats();
+      
+      // Close modal if it's open
+      closeImageModal();
+    } else {
+      const errorText = await response.text();
+      alert('Failed to delete image: ' + errorText);
+    }
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    alert('Failed to delete image. Please try again.');
   }
 }
 
@@ -530,6 +519,11 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Image modal buttons
   document.getElementById('addAnnotation').addEventListener('click', openRecordingModal);
+  document.getElementById('deleteImage').addEventListener('click', () => {
+    if (currentImage) {
+      deleteImage(currentImage.id);
+    }
+  });
   
   // Recording modal buttons
   document.getElementById('recordBtn').addEventListener('click', startRecording);

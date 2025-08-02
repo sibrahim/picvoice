@@ -265,7 +265,7 @@ app.post('/create-video', async (req, res) => {
 
             try {
               // Get the session_id for this image
-              const imageInfo = await db.getImageById(imageFilename);
+              const imageInfo = await db.getImageByFilename(imageFilename);
               const sessionId = imageInfo ? imageInfo.session_id : Date.now();
               
               // Save annotation to database using the existing image filename
@@ -432,14 +432,52 @@ app.put('/api/image/:imageId/tags', async (req, res) => {
   }
 });
 
-// Soft delete image
+// Delete image with cleanup
 app.delete('/api/image/:imageId', async (req, res) => {
   try {
     const imageId = parseInt(req.params.imageId);
+    const user = await db.getUser(DEFAULT_USER);
+    
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    // Get image info before deletion
+    const imageInfo = await db.getImageById(imageId);
+    if (!imageInfo) {
+      return res.status(404).send('Image not found');
+    }
+
+    // Get all annotations for this image
+    const imageAnnotations = await db.getImageAnnotations(user.id, imageInfo.filename);
+    
+    // Delete associated MP3 files
+    for (const annotation of imageAnnotations) {
+      const mp3Path = path.join(userManager.getUserOutputsDir(user.email), annotation.mp3_filename);
+      if (fs.existsSync(mp3Path)) {
+        fs.unlinkSync(mp3Path);
+      }
+    }
+
+    // Delete annotations from database
+    for (const annotation of imageAnnotations) {
+      await db.deleteAnnotationById(annotation.id);
+    }
+
+    // Delete the image file
+    const imagePath = path.join(userManager.getUserUploadsDir(user.email), imageInfo.filename);
+    if (fs.existsSync(imagePath)) {
+      fs.unlinkSync(imagePath);
+    }
+
+    // Soft delete the image from database
     const result = await db.softDeleteImage(imageId);
     
     if (result > 0) {
-      res.json({ success: true, message: 'Image deleted successfully' });
+      res.json({ 
+        success: true, 
+        message: `Image deleted successfully. Removed ${imageAnnotations.length} annotation${imageAnnotations.length > 1 ? 's' : ''}.` 
+      });
     } else {
       res.status(404).send('Image not found');
     }

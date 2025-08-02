@@ -328,7 +328,26 @@ function getSessions(userId) {
   });
 }
 
-function getImageById(filename) {
+function getImageById(imageId) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    db.get(
+      'SELECT * FROM images WHERE id = ? AND is_deleted = 0',
+      [imageId],
+      (err, row) => {
+        if (err) {
+          console.error('Error getting image by ID:', err);
+          reject(err);
+        } else {
+          resolve(row);
+        }
+        db.close();
+      }
+    );
+  });
+}
+
+function getImageByFilename(filename) {
   return new Promise((resolve, reject) => {
     const db = new sqlite3.Database(dbPath);
     db.get(
@@ -362,5 +381,6 @@ module.exports = {
   updateImageTags,
   softDeleteImage,
   getSessions,
-  getImageById
+  getImageById,
+  getImageByFilename
 }; 

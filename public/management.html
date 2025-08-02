@@ -50,9 +50,6 @@
 
     <div class="images-grid" id="imagesGrid">
       <!-- Images will be loaded here -->
-      <div style="padding: 20px; text-align: center; color: #666;">
-        Loading images... Please wait.
-      </div>
     </div>
 
     <!-- Image Detail Modal -->
@@ -69,7 +66,10 @@
             <div class="annotation-controls" id="annotation-controls">
               <!-- Annotations list will be rendered here -->
             </div>
-            <button id="addAnnotation" class="btn btn-success">Add Annotation</button>
+            <div class="image-actions">
+              <button id="addAnnotation" class="btn btn-success">Add Annotation</button>
+              <button id="deleteImage" class="btn btn-danger">Delete Image</button>
+            </div>
             <div class="annotation-player" id="annotationPlayer" style="display:none;">
               <audio id="audioPlayer" controls></audio>
             </div>
