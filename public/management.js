@@ -179,7 +179,10 @@ function renderAnnotationsList(annotations) {
   const annotationsList = document.createElement('div');
   annotationsList.className = 'annotations-list';
   
-  annotations.forEach((annotation, index) => {
+  // Reverse the annotations array to show most recent first
+  const reversedAnnotations = [...annotations].reverse();
+  
+  reversedAnnotations.forEach((annotation, index) => {
     const annotationItem = document.createElement('div');
     annotationItem.className = 'annotation-item';
     
@@ -187,7 +190,6 @@ function renderAnnotationsList(annotations) {
     
     annotationItem.innerHTML = `
       <div class="annotation-info">
-        <span class="annotation-number">#${index + 1}</span>
         <span class="annotation-date">${date}</span>
       </div>
       <div class="annotation-controls-small">
