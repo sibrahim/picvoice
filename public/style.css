@@ -63,6 +63,31 @@ body { font-family: sans-serif; text-align: center; margin: 2rem; }
   color: #aaa !important;
   cursor: not-allowed;
 }
+
+.image-controls {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.rotate-btn {
+  font-size: 1.2rem;
+  padding: 0.8rem 1.5rem;
+  background-color: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.rotate-btn:hover {
+  background-color: #1976D2;
+}
+
+.rotate-btn:active {
+  background-color: #1565C0;
+}
 body, .step, .instructions {
   font-size: 1.5rem;
 }

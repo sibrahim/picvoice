@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const sharp = require('sharp');
 const db = require('./database');
 const userManager = require('./userManager');
 
@@ -141,6 +142,7 @@ app.get('/api/images', async (req, res) => {
       session_id: img.session_id,
       is_favorite: img.is_favorite,
       tags: img.tags,
+      rotation_degrees: img.rotation_degrees || 0,
       url: `/users/${user.email}/uploads/${img.filename}`
     })) });
   } catch (error) {
@@ -166,6 +168,7 @@ app.get('/api/all-images', async (req, res) => {
       session_id: img.session_id,
       is_favorite: img.is_favorite,
       tags: img.tags,
+      rotation_degrees: img.rotation_degrees || 0,
       url: `/users/${user.email}/uploads/${img.filename}`
     })) });
   } catch (error) {
@@ -487,6 +490,60 @@ app.delete('/api/image/:imageId', async (req, res) => {
   }
 });
 
+// Rotate image by 90 degrees
+app.post('/api/image/:imageId/rotate', async (req, res) => {
+  try {
+    const imageId = parseInt(req.params.imageId);
+    const user = await db.getUser(DEFAULT_USER);
+    
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    // Get image info
+    const imageInfo = await db.getImageById(imageId);
+    if (!imageInfo) {
+      return res.status(404).send('Image not found');
+    }
+
+    // Calculate new rotation (add 90 degrees, keep within 0-360)
+    const currentRotation = imageInfo.rotation_degrees || 0;
+    const newRotation = (currentRotation + 90) % 360;
+
+    // Get the image file path
+    const imagePath = path.join(userManager.getUserUploadsDir(user.email), imageInfo.filename);
+    
+    if (!fs.existsSync(imagePath)) {
+      return res.status(404).send('Image file not found');
+    }
+
+    try {
+      // Rotate the image using Sharp
+      await sharp(imagePath)
+        .rotate(90)
+        .toFile(imagePath + '.temp');
+
+      // Replace the original file with the rotated version
+      fs.renameSync(imagePath + '.temp', imagePath);
+
+      // Update the rotation state in the database
+      await db.updateImageRotation(imageId, newRotation);
+
+      res.json({ 
+        success: true, 
+        message: 'Image rotated successfully',
+        rotation: newRotation
+      });
+    } catch (sharpError) {
+      console.error('Error rotating image:', sharpError);
+      res.status(500).send('Failed to rotate image');
+    }
+  } catch (error) {
+    console.error('Error rotating image:', error);
+    res.status(500).send('Failed to rotate image');
+  }
+});
+
 // Get images by session
 app.get('/api/session/:sessionId/images', async (req, res) => {
   try {
@@ -506,6 +563,7 @@ app.get('/api/session/:sessionId/images', async (req, res) => {
       session_id: img.session_id,
       is_favorite: img.is_favorite,
       tags: img.tags,
+      rotation_degrees: img.rotation_degrees || 0,
       url: `/users/${user.email}/uploads/${img.filename}`
     })) });
   } catch (error) {

@@ -146,9 +146,10 @@ function displayImage() {
   console.log('Current imageFile:', imageFile);
   document.getElementById('imageFilename').innerText = imageFile.name || '';
   
-  // Create image element with user-specific path
+  // Create image element with user-specific path and cache-busting
   const img = document.createElement('img');
-  img.src = `/users/testuser@gmail.com/uploads/${imageFile.name}`;
+  const cacheBuster = Date.now() + Math.random(); // More unique cache-busting parameter
+  img.src = `/users/testuser@gmail.com/uploads/${imageFile.name}?t=${cacheBuster}`;
   console.log('Image src:', img.src);
   
   const preview = document.getElementById('imagePreview');
@@ -376,4 +377,37 @@ const imageInput = document.getElementById('imageInput');
 const selectImageBtn = document.getElementById('selectImageBtn');
 if (selectImageBtn && imageInput) {
   selectImageBtn.addEventListener('click', () => imageInput.click());
+}
+
+// Rotation functionality
+const rotateBtn = document.getElementById('rotateBtn');
+if (rotateBtn) {
+  rotateBtn.addEventListener('click', async () => {
+    if (!imageFile || !userImages[currentIndex]) {
+      alert('Please select an image first.');
+      return;
+    }
+
+    const imageId = userImages[currentIndex].id;
+    try {
+      const response = await fetch(`/api/image/${imageId}/rotate`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert('Image rotated successfully!');
+        // Reload the image to show the rotation with fresh cache-busting
+        displayImage();
+        // Reload user images to get updated rotation data
+        await loadUserImages();
+      } else {
+        const errorText = await response.text();
+        alert('Failed to rotate image: ' + errorText);
+      }
+    } catch (error) {
+      console.error('Error rotating image:', error);
+      alert('Failed to rotate image. Please try again.');
+    }
+  });
 }

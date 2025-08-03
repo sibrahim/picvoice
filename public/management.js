@@ -20,11 +20,12 @@ async function loadImages() {
   try {
     const response = await fetch('/api/all-images');
     const data = await response.json();
+    const cacheBuster = Date.now() + Math.random(); // More unique cache-busting parameter
     images = data.images.map(img => ({
       id: img.id,
       filename: img.filename,
       name: img.original_filename || img.filename,
-      url: img.url || `/users/testuser@gmail.com/uploads/${img.filename}`,
+      url: `${img.url || `/users/testuser@gmail.com/uploads/${img.filename}`}?t=${cacheBuster}`,
       upload_time: img.upload_time,
       session_id: img.session_id,
       is_favorite: img.is_favorite,
@@ -136,8 +137,9 @@ function openImageModal(filename) {
   const annotationStatus = document.getElementById('annotationStatus');
   const addBtn = document.getElementById('addAnnotation');
   
-  // Set image
-  modalImage.src = currentImage.url;
+  // Set image with cache-busting
+  const cacheBuster = Date.now() + Math.random();
+  modalImage.src = `${currentImage.url.split('?')[0]}?t=${cacheBuster}`;
   modalImageName.textContent = currentImage.name;
   
   // Set annotation status
@@ -496,6 +498,42 @@ async function uploadImages(files) {
   }
 }
 
+// Rotate image
+async function rotateImage(imageId) {
+  try {
+    const response = await fetch(`/api/image/${imageId}/rotate`, {
+      method: 'POST'
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      alert('Image rotated successfully!');
+      
+      // Reload images and annotations to get updated data
+      await loadImages();
+      await loadAnnotations();
+      renderImages();
+      updateStats();
+      
+      // Refresh the modal if it's open with fresh cache-busting
+      if (currentImage) {
+        const modalImage = document.getElementById('modalImage');
+        const cacheBuster = Date.now() + Math.random();
+        modalImage.src = `${currentImage.url.split('?')[0]}?t=${cacheBuster}`;
+        
+        const imageAnnotations = annotations[currentImage.filename] || [];
+        renderAnnotationsList(imageAnnotations);
+      }
+    } else {
+      const errorText = await response.text();
+      alert('Failed to rotate image: ' + errorText);
+    }
+  } catch (error) {
+    console.error('Error rotating image:', error);
+    alert('Failed to rotate image. Please try again.');
+  }
+}
+
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
   // Sort and filter controls
@@ -524,6 +562,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('deleteImage').addEventListener('click', () => {
     if (currentImage) {
       deleteImage(currentImage.id);
+    }
+  });
+  
+  // Rotation functionality
+  document.getElementById('rotateImage').addEventListener('click', async () => {
+    if (currentImage) {
+      await rotateImage(currentImage.id);
     }
   });
   

@@ -36,6 +36,7 @@ function initDatabase() {
           is_favorite BOOLEAN DEFAULT 0,
           tags TEXT,
           is_deleted BOOLEAN DEFAULT 0,
+          rotation_degrees INTEGER DEFAULT 0,
           FOREIGN KEY (user_id) REFERENCES users (id)
         )`, (err) => {
           if (err) {
@@ -366,6 +367,25 @@ function getImageByFilename(filename) {
   });
 }
 
+function updateImageRotation(imageId, rotationDegrees) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    db.run(
+      'UPDATE images SET rotation_degrees = ? WHERE id = ? AND is_deleted = 0',
+      [rotationDegrees, imageId],
+      function(err) {
+        if (err) {
+          console.error('Error updating image rotation:', err);
+          reject(err);
+        } else {
+          resolve(this.changes);
+        }
+        db.close();
+      }
+    );
+  });
+}
+
 module.exports = {
   initDatabase,
   getUser,
@@ -382,5 +402,6 @@ module.exports = {
   softDeleteImage,
   getSessions,
   getImageById,
-  getImageByFilename
+  getImageByFilename,
+  updateImageRotation
 }; 
