@@ -396,7 +396,7 @@ if (rotateBtn) {
 
       if (response.ok) {
         const result = await response.json();
-        alert('Image rotated successfully!');
+        //alert('Image rotated successfully!');
         // Reload the image to show the rotation with fresh cache-busting
         displayImage();
         // Reload user images to get updated rotation data

@@ -507,7 +507,7 @@ async function rotateImage(imageId) {
 
     if (response.ok) {
       const result = await response.json();
-      alert('Image rotated successfully!');
+      //alert('Image rotated successfully!');
       
       // Reload images and annotations to get updated data
       await loadImages();
