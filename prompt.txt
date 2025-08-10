@@ -72,7 +72,7 @@ Questions
 
 UI Design:
 
-The management screen does not have to be elderly
+The management screen does not have to be fully elderly
 friendly whereas the index.html should continue to be elderly friendly.
 
 Ready flag:
