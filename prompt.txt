@@ -60,10 +60,6 @@ something else ?
 Please help suggest approaches, pro and cons .
 
 
-
-
-
-
 -------
 Questions
 1. What model is cursor using - opus 3.5
@@ -71,9 +67,44 @@ Questions
 3. How do you copy and paste w/ context - ctrl c 
 4. why does the system lose track - says design wasnt right from the start
 
+-------
+8/9/2025
+
+UI Design:
+
+The management screen does not have to be elderly
+friendly whereas the index.html should continue to be elderly friendly.
+
+Ready flag:
+Adding a concept of Ready to annotate perhaps by using a ready flag in the the
+database. Please suggest if there is a more elegant method of doing this.
+The Ready to annotate allows the management interface to set which images
+will be reviewed by the elderly. 
+
+When an image is uploaded through the simple annotation interface (index.html)
+the images are marked as Ready=1. If uploaded into management interface, they are marked Ready=0. The set of images that are displayed  in the simple annotation
+interface should be all images that are Ready=1 plus all images from the last upload session.  
+
+Management interface: Allow filtering of images by last upload session, Ready state in addition to the current filtering.
+ALso add a way to select a set of images and set the Ready flag.
 
 
+Albums:
+
+An image can belong to multiple albums or none. Please suggest if the best
+way to achieve this is by using tags or a seperate album structure 
+
+Viewing of All images OR from an Album in the management screen.
+
+In the management screen, please add support for selecting a set of images into
+an album.
+
+The management interface should also support setting a set of images with user
+defined tags. A way to manage tags as well. 
+
+The images can be favourited with a star. 
+
+The filter should allow selection of favourites, annotated, not annotated within an album or all images, last session, Ready=1, Ready =0 etc.
 
 
-
-
+-------
