@@ -88,6 +88,26 @@ interface should be all images that are Ready=1 plus all images from the last up
 Management interface: Allow filtering of images by last upload session, Ready state in addition to the current filtering.
 ALso add a way to select a set of images and set the Ready flag.
 
+Refinement:
+
+I would like to refine the uploading process:
+1. when  images are uploaded  in management page, set ready=0
+2. when  images are uploaded from simple annotation page (index.html)
+please set ready=1 
+3. Only display images that are ready=1 in the simple annotation page. Remove
+logic that also included images from the last upload session. 
+
+Refinement2:
+There are two upload buttons in the management screen.
+One labelled "Upload New Images" and the other labelled "Upload Images".
+1) "Upload Images" is a image file selector and
+2) "Upload New Images" uploads folders.
+Is it possible to consolidate these two into 1 button having both functionality ?
+When images are uploaded in management interface, set ready=0
+
+
+
+-------
 
 Albums:
 

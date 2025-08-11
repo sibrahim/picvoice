@@ -185,7 +185,7 @@ app.post('/api/management/upload-images', multer({
   }
 });
 
-// Get images for simple annotation interface (Ready=1 + last session)
+// Get images for simple annotation interface (Ready=1 only)
 app.get('/api/images', async (req, res) => {
   try {
     const user = await db.getUser(DEFAULT_USER);

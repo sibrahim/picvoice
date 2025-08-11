@@ -389,40 +389,25 @@ function updateImageRotation(imageId, rotationDegrees) {
   });
 }
 
-// Get images ready for annotation (Ready=1 + last session)
+// Get images ready for annotation (Ready=1 only)
 function getReadyImages(userId) {
   return new Promise((resolve, reject) => {
     const db = new sqlite3.Database(dbPath);
     
-    // Get the most recent session ID for this user
-    db.get(
-      'SELECT MAX(session_id) as max_session FROM images WHERE user_id = ? AND is_deleted = 0',
+    // Get only Ready=1 images
+    db.all(
+      `SELECT * FROM images 
+       WHERE user_id = ? AND is_deleted = 0 
+       AND ready = 1
+       ORDER BY upload_time DESC`,
       [userId],
-      (err, sessionRow) => {
+      (err, rows) => {
+        db.close();
         if (err) {
-          db.close();
           reject(err);
-          return;
+        } else {
+          resolve(rows);
         }
-        
-        const maxSession = sessionRow.max_session || 0;
-        
-        // Get Ready=1 images + images from last session
-        db.all(
-          `SELECT * FROM images 
-           WHERE user_id = ? AND is_deleted = 0 
-           AND (ready = 1 OR session_id = ?)
-           ORDER BY upload_time DESC`,
-          [userId, maxSession],
-          (err, rows) => {
-            db.close();
-            if (err) {
-              reject(err);
-            } else {
-              resolve(rows);
-            }
-          }
-        );
       }
     );
   });
