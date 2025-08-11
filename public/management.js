@@ -13,6 +13,7 @@ window.addEventListener('load', async () => {
   await loadAnnotations();
   renderImages();
   updateStats();
+  await loadSessions(); // Load sessions for filtering
 });
 
 // Load user's images
@@ -31,7 +32,8 @@ async function loadImages() {
       is_favorite: img.is_favorite,
       tags: img.tags,
       hasAnnotation: false,
-      annotationCount: 0
+      annotationCount: 0,
+      ready: img.ready // Assuming 'ready' is part of the image data
     }));
   } catch (error) {
     console.error('Error loading images:', error);
@@ -67,11 +69,94 @@ async function loadAnnotations() {
   }
 }
 
+// Load sessions for filtering
+async function loadSessions() {
+  try {
+    const response = await fetch('/api/sessions');
+    const data = await response.json();
+    
+    const sessionSelect = document.getElementById('sessionFilterSelect');
+    sessionSelect.innerHTML = '<option value="all">All Sessions</option>';
+    
+    data.sessions.forEach(session => {
+      const option = document.createElement('option');
+      option.value = session.session_id;
+      option.textContent = `Session ${session.session_id} (${session.total_images} images, ${session.ready_images} ready)`;
+      sessionSelect.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Error loading sessions:', error);
+  }
+}
+
+// Get selected image IDs
+function getSelectedImageIds() {
+  const checkboxes = document.querySelectorAll('.image-checkbox:checked');
+  return Array.from(checkboxes).map(cb => parseInt(cb.dataset.imageId));
+}
+
+// Select all images
+function selectAllImages() {
+  const checkboxes = document.querySelectorAll('.image-checkbox');
+  checkboxes.forEach(cb => cb.checked = true);
+}
+
+// Deselect all images
+function deselectAllImages() {
+  const checkboxes = document.querySelectorAll('.image-checkbox');
+  checkboxes.forEach(cb => cb.checked = false);
+}
+
+// Update ready flag for selected images
+async function updateSelectedImagesReady(ready) {
+  const selectedIds = getSelectedImageIds();
+  
+  if (selectedIds.length === 0) {
+    alert('Please select at least one image.');
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/images/ready', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        imageIds: selectedIds,
+        ready: ready
+      })
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      alert(result.message);
+      
+      // Reload data and refresh UI
+      await loadImages();
+      await loadAnnotations();
+      renderImages();
+      updateStats();
+      
+      // Deselect all after update
+      deselectAllImages();
+    } else {
+      const errorText = await response.text();
+      alert('Failed to update ready flags: ' + errorText);
+    }
+  } catch (error) {
+    console.error('Error updating ready flags:', error);
+    alert('Failed to update ready flags. Please try again.');
+  }
+}
+
 // Render images grid
 function renderImages() {
   const grid = document.getElementById('imagesGrid');
   const sortBy = document.getElementById('sortSelect').value;
   const filterBy = document.getElementById('filterSelect').value;
+  const readyFilter = document.getElementById('readyFilterSelect').value;
+  const sessionFilter = document.getElementById('sessionFilterSelect').value;
   const searchTerm = document.getElementById('searchInput').value.toLowerCase();
   
   // Filter and sort images
@@ -80,8 +165,13 @@ function renderImages() {
     const matchesFilter = filterBy === 'all' || 
       (filterBy === 'annotated' && image.hasAnnotation) ||
       (filterBy === 'unannotated' && !image.hasAnnotation);
+    const matchesReady = readyFilter === 'all' || 
+      (readyFilter === 'ready' && image.ready) ||
+      (readyFilter === 'not-ready' && !image.ready);
+    const matchesSession = sessionFilter === 'all' || 
+      image.session_id.toString() === sessionFilter;
     
-    return matchesSearch && matchesFilter;
+    return matchesSearch && matchesFilter && matchesReady && matchesSession;
   });
   
   // Sort images
@@ -98,15 +188,21 @@ function renderImages() {
     }
   });
   
-  // Generate HTML
+  // Generate HTML with checkboxes and ready status
   const html = filteredImages.map(image => `
     <div class="image-card" onclick="openImageModal('${image.filename}')">
+      <div class="image-card-checkbox">
+        <input type="checkbox" class="image-checkbox" data-image-id="${image.id}" onclick="event.stopPropagation();">
+      </div>
       <img src="${image.url}" alt="${image.name}" />
       <div class="image-card-info">
         <div class="image-card-name">${image.name}</div>
         <div class="image-card-status ${image.hasAnnotation ? 'status-annotated' : 'status-unannotated'}">
           <div class="status-icon"></div>
           ${image.hasAnnotation ? `${image.annotationCount} Annotation${image.annotationCount > 1 ? 's' : ''}` : 'No Annotations'}
+        </div>
+        <div class="ready-status ${image.ready ? 'ready' : 'not-ready'}">
+          ${image.ready ? '✅ Ready' : '⏳ Not Ready'}
         </div>
       </div>
     </div>
@@ -498,6 +594,40 @@ async function uploadImages(files) {
   }
 }
 
+// Upload images through management interface
+async function uploadImagesToManagement(files) {
+  const formData = new FormData();
+  
+  for (const file of files) {
+    formData.append('images', file);
+  }
+  
+  try {
+    const response = await fetch('/api/management/upload-images', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      alert(result.message);
+      
+      // Reload data and refresh UI
+      await loadImages();
+      await loadAnnotations();
+      await loadSessions();
+      renderImages();
+      updateStats();
+    } else {
+      const errorText = await response.text();
+      alert('Upload failed: ' + errorText);
+    }
+  } catch (error) {
+    console.error('Upload error:', error);
+    alert('Upload failed. Please try again.');
+  }
+}
+
 // Rotate image
 async function rotateImage(imageId) {
   try {
@@ -540,6 +670,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('sortSelect').addEventListener('change', renderImages);
   document.getElementById('filterSelect').addEventListener('change', renderImages);
   document.getElementById('searchInput').addEventListener('input', renderImages);
+  document.getElementById('readyFilterSelect').addEventListener('change', renderImages);
+  document.getElementById('sessionFilterSelect').addEventListener('change', renderImages);
   
   // Upload button
   document.getElementById('uploadBtn').addEventListener('click', () => {
@@ -550,6 +682,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const files = Array.from(event.target.files).filter(file => file.type.startsWith('image/'));
     if (files.length > 0) {
       uploadImages(files);
+    }
+  });
+  
+  // Bulk selection buttons
+  document.getElementById('selectAllBtn').addEventListener('click', selectAllImages);
+  document.getElementById('deselectAllBtn').addEventListener('click', deselectAllImages);
+  document.getElementById('setReadyBtn').addEventListener('click', () => updateSelectedImagesReady(true));
+  document.getElementById('setNotReadyBtn').addEventListener('click', () => updateSelectedImagesReady(false));
+  
+  // Upload button
+  document.getElementById('uploadImagesBtn').addEventListener('click', () => {
+    document.getElementById('managementImageInput').click();
+  });
+  
+  // File input change
+  document.getElementById('managementImageInput').addEventListener('change', (event) => {
+    if (event.target.files.length > 0) {
+      uploadImagesToManagement(event.target.files);
+      event.target.value = ''; // Reset input
     }
   });
   

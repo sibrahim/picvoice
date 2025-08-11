@@ -17,6 +17,7 @@ const DEFAULT_USER = 'testuser@gmail.com';
 
 // Enable CORS for iPad access
 app.use(cors());
+app.use(express.json());
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true }));
 
@@ -60,72 +61,131 @@ function createUserStorage(userEmail) {
 }
 
 // Upload images endpoint
-app.post('/upload-images', async (req, res) => {
+app.post('/upload-images', multer({
+  storage: createUserStorage(DEFAULT_USER),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+}).array('images'), async (req, res) => {
   try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).send('No images uploaded');
+    }
+
     const user = await db.getUser(DEFAULT_USER);
     if (!user) {
       return res.status(404).send('User not found');
     }
 
-    // Create user-specific multer storage
-    const userUpload = multer({
-      storage: createUserStorage(user.email),
-      fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith('image/')) {
-          cb(null, true);
-        } else {
-          cb(new Error('Only image files are allowed'));
-        }
-      }
-    });
+    // Generate a new session ID
+    const sessionId = Date.now();
+    const uploadedFiles = [];
 
-    userUpload.array('images')(req, res, async (err) => {
-      if (err) {
-        return res.status(400).send(err.message);
-      }
-
-      if (!req.files || req.files.length === 0) {
-        return res.status(400).send('No images uploaded');
-      }
-
+    for (const file of req.files) {
       try {
-        // Generate new session ID for this upload
-        const sessionId = Date.now();
-        const savedImages = [];
-
-        // Process each uploaded file
-        for (const file of req.files) {
-          const savedImage = userManager.saveUserFile(user.email, file, file.originalname);
-          savedImages.push(savedImage);
-          
-          // Save image info to database
-          await db.saveImage(user.id, savedImage.filename, file.originalname, sessionId);
-        }
-
-        // Clean up temp files
-        userManager.cleanupUserTemp(user.email);
-
-        res.json({ 
-          message: `${savedImages.length} images uploaded successfully`,
-          sessionId: sessionId,
-          images: savedImages.map(img => ({
-            filename: img.filename,
-            originalName: img.originalName,
-            url: `/users/${user.email}/uploads/${img.filename}`
-          }))
+        // Save to user's uploads directory with timestamped filename
+        const timestampedFilename = `${path.parse(file.originalname).name}_${Date.now()}.${path.extname(file.originalname)}`;
+        const userUploadsDir = userManager.getUserUploadsDir(user.email);
+        const finalPath = path.join(userUploadsDir, timestampedFilename);
+        
+        await fs.promises.copyFile(file.path, finalPath);
+        
+        // Save image metadata to database with ready=1 (simple interface uploads)
+        await db.saveImage(user.id, timestampedFilename, file.originalname, sessionId, 1);
+        
+        uploadedFiles.push({
+          originalname: file.originalname,
+          filename: timestampedFilename
         });
+        
+        // Clean up temp file
+        await fs.promises.unlink(file.path);
+        
       } catch (error) {
-        console.error('Error processing upload:', error);
-        res.status(500).send('Upload processing failed');
+        console.error('Error processing file:', error);
       }
+    }
+
+    res.json({ 
+      message: `Successfully uploaded ${uploadedFiles.length} images`,
+      sessionId: sessionId,
+      files: uploadedFiles
     });
+    
   } catch (error) {
     console.error('Upload error:', error);
     res.status(500).send('Upload failed');
   }
 });
 
-// Get images endpoint - returns only current session images
+// Upload images through management interface (ready=0)
+app.post('/api/management/upload-images', multer({
+  storage: createUserStorage(DEFAULT_USER),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+}).array('images'), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).send('No images uploaded');
+    }
+
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    // Generate a new session ID
+    const sessionId = Date.now();
+    const uploadedFiles = [];
+
+    for (const file of req.files) {
+      try {
+        // Save to user's uploads directory with timestamped filename
+        const timestampedFilename = `${path.parse(file.originalname).name}_${Date.now()}.${path.extname(file.originalname)}`;
+        const userUploadsDir = userManager.getUserUploadsDir(user.email);
+        const finalPath = path.join(userUploadsDir, timestampedFilename);
+        
+        await fs.promises.copyFile(file.path, finalPath);
+        
+        // Save image metadata to database with ready=0 (management interface uploads)
+        await db.saveImage(user.id, timestampedFilename, file.originalname, sessionId, 0);
+        
+        uploadedFiles.push({
+          originalname: file.originalname,
+          filename: timestampedFilename
+        });
+        
+        // Clean up temp file
+        await fs.promises.unlink(file.path);
+        
+      } catch (error) {
+        console.error('Error processing file:', error);
+      }
+    }
+
+    res.json({ 
+      success: true,
+      message: `Successfully uploaded ${uploadedFiles.length} images to management interface`,
+      sessionId: sessionId,
+      files: uploadedFiles
+    });
+    
+  } catch (error) {
+    console.error('Management upload error:', error);
+    res.status(500).send('Upload failed');
+  }
+});
+
+// Get images for simple annotation interface (Ready=1 + last session)
 app.get('/api/images', async (req, res) => {
   try {
     const user = await db.getUser(DEFAULT_USER);
@@ -133,18 +193,22 @@ app.get('/api/images', async (req, res) => {
       return res.status(404).send('User not found');
     }
 
-    const images = await db.getCurrentSessionImages(user.id);
-    res.json({ images: images.map(img => ({
-      id: img.id,
-      filename: img.filename,
-      original_filename: img.original_filename,
-      upload_time: img.upload_time,
-      session_id: img.session_id,
-      is_favorite: img.is_favorite,
-      tags: img.tags,
-      rotation_degrees: img.rotation_degrees || 0,
-      url: `/users/${user.email}/uploads/${img.filename}`
-    })) });
+    const images = await db.getReadyImages(user.id);
+    
+    res.json({ 
+      images: images.map(img => ({
+        id: img.id,
+        filename: img.filename,
+        original_filename: img.original_filename,
+        upload_time: img.upload_time,
+        session_id: img.session_id,
+        is_favorite: img.is_favorite,
+        tags: img.tags,
+        rotation_degrees: img.rotation_degrees || 0,
+        ready: img.ready,
+        url: `/users/${user.email}/uploads/${img.filename}`
+      }))
+    });
   } catch (error) {
     console.error('Error getting images:', error);
     res.status(500).send('Failed to get images');
@@ -169,6 +233,7 @@ app.get('/api/all-images', async (req, res) => {
       is_favorite: img.is_favorite,
       tags: img.tags,
       rotation_degrees: img.rotation_degrees || 0,
+      ready: img.ready || 0,
       url: `/users/${user.email}/uploads/${img.filename}`
     })) });
   } catch (error) {
@@ -177,7 +242,7 @@ app.get('/api/all-images', async (req, res) => {
   }
 });
 
-// Get sessions for management interface
+// Get sessions with ready count
 app.get('/api/sessions', async (req, res) => {
   try {
     const user = await db.getUser(DEFAULT_USER);
@@ -185,11 +250,48 @@ app.get('/api/sessions', async (req, res) => {
       return res.status(404).send('User not found');
     }
 
-    const sessions = await db.getSessions(user.id);
+    const sessions = await db.getSessionsWithReadyCount(user.id);
     res.json({ sessions });
   } catch (error) {
     console.error('Error getting sessions:', error);
     res.status(500).send('Failed to get sessions');
+  }
+});
+
+// Update ready flag for multiple images
+app.post('/api/images/ready', async (req, res) => {
+  try {
+    const { imageIds, ready } = req.body;
+    
+    if (!imageIds || !Array.isArray(imageIds)) {
+      return res.status(400).send('Invalid request data: imageIds must be an array');
+    }
+    
+    // Handle both boolean and string boolean values
+    let readyValue;
+    if (typeof ready === 'boolean') {
+      readyValue = ready;
+    } else if (typeof ready === 'string') {
+      readyValue = ready === 'true';
+    } else {
+      return res.status(400).send('Invalid request data: ready must be boolean or string boolean');
+    }
+
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const updatedCount = await db.updateImagesReady(imageIds, readyValue ? 1 : 0);
+    
+    res.json({ 
+      success: true, 
+      message: `Updated ready flag for ${updatedCount} images`,
+      updatedCount 
+    });
+  } catch (error) {
+    console.error('Error updating ready flags:', error);
+    res.status(500).send('Failed to update ready flags');
   }
 });
 

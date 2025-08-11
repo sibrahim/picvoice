@@ -23,22 +23,40 @@
     </header>
 
     <div class="management-controls">
-      <div class="sort-controls">
-        <label for="sortSelect">Sort by:</label>
-        <select id="sortSelect">
-          <option value="name">Name</option>
-          <option value="date">Date Added</option>
-          <option value="annotated">Annotation Status</option>
-        </select>
-        <label for="filterSelect">Filter:</label>
-        <select id="filterSelect">
-          <option value="all">All Images</option>
-          <option value="annotated">Annotated Only</option>
-          <option value="unannotated">Unannotated Only</option>
-        </select>
-      </div>
-      <div class="search-controls">
-        <input type="text" id="searchInput" placeholder="Search images..." />
+      <div class="controls">
+        <div class="filter-controls">
+          <select id="sortSelect">
+            <option value="name">Sort by Name</option>
+            <option value="date">Sort by Date Added</option>
+            <option value="annotated">Sort by Annotation Status</option>
+          </select>
+
+          <select id="filterSelect">
+            <option value="all">All Images</option>
+            <option value="annotated">Annotated Only</option>
+            <option value="unannotated">Unannotated Only</option>
+          </select>
+
+          <select id="readyFilterSelect">
+            <option value="all">All Ready States</option>
+            <option value="ready">Ready to Annotate</option>
+            <option value="not-ready">Not Ready</option>
+          </select>
+
+          <select id="sessionFilterSelect">
+            <option value="all">All Sessions</option>
+          </select>
+
+          <input type="text" id="searchInput" placeholder="Search images...">
+        </div>
+
+        <div class="bulk-controls">
+          <button id="selectAllBtn" class="btn btn-secondary">Select All</button>
+          <button id="deselectAllBtn" class="btn btn-secondary">Deselect All</button>
+          <button id="setReadyBtn" class="btn btn-success">Mark as Ready</button>
+          <button id="setNotReadyBtn" class="btn btn-warning">Mark as Not Ready</button>
+          <button id="uploadImagesBtn" class="btn btn-primary">Upload Images</button>
+        </div>
       </div>
     </div>
 
@@ -51,6 +69,8 @@
     <div class="images-grid" id="imagesGrid">
       <!-- Images will be loaded here -->
     </div>
+
+    <input type="file" id="managementImageInput" multiple accept="image/*" style="display: none;">
 
     <!-- Image Detail Modal -->
     <div id="imageModal" class="modal">

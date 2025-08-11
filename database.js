@@ -37,6 +37,7 @@ function initDatabase() {
           tags TEXT,
           is_deleted BOOLEAN DEFAULT 0,
           rotation_degrees INTEGER DEFAULT 0,
+          ready INTEGER DEFAULT 0,
           FOREIGN KEY (user_id) REFERENCES users (id)
         )`, (err) => {
           if (err) {
@@ -159,17 +160,19 @@ function deleteAnnotationById(annotationId) {
   });
 }
 
-function saveImage(userId, filename, originalFilename, sessionId) {
+// Save image metadata
+function saveImage(userId, filename, originalFilename, sessionId, ready = 0) {
   return new Promise((resolve, reject) => {
     const db = new sqlite3.Database(dbPath);
     db.run(
-      'INSERT INTO images (user_id, filename, original_filename, session_id) VALUES (?, ?, ?, ?)',
-      [userId, filename, originalFilename, sessionId],
+      'INSERT INTO images (user_id, filename, original_filename, session_id, ready) VALUES (?, ?, ?, ?, ?)',
+      [userId, filename, originalFilename, sessionId, ready],
       function(err) {
         if (err) {
           console.error('Error saving image:', err);
           reject(err);
         } else {
+          console.log('Image saved with ID:', this.lastID);
           resolve(this.lastID);
         }
         db.close();
@@ -386,6 +389,93 @@ function updateImageRotation(imageId, rotationDegrees) {
   });
 }
 
+// Get images ready for annotation (Ready=1 + last session)
+function getReadyImages(userId) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    
+    // Get the most recent session ID for this user
+    db.get(
+      'SELECT MAX(session_id) as max_session FROM images WHERE user_id = ? AND is_deleted = 0',
+      [userId],
+      (err, sessionRow) => {
+        if (err) {
+          db.close();
+          reject(err);
+          return;
+        }
+        
+        const maxSession = sessionRow.max_session || 0;
+        
+        // Get Ready=1 images + images from last session
+        db.all(
+          `SELECT * FROM images 
+           WHERE user_id = ? AND is_deleted = 0 
+           AND (ready = 1 OR session_id = ?)
+           ORDER BY upload_time DESC`,
+          [userId, maxSession],
+          (err, rows) => {
+            db.close();
+            if (err) {
+              reject(err);
+            } else {
+              resolve(rows);
+            }
+          }
+        );
+      }
+    );
+  });
+}
+
+// Update ready flag for multiple images
+function updateImagesReady(imageIds, ready) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    const placeholders = imageIds.map(() => '?').join(',');
+    
+    db.run(
+      `UPDATE images SET ready = ? WHERE id IN (${placeholders}) AND is_deleted = 0`,
+      [ready, ...imageIds],
+      function(err) {
+        db.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this.changes);
+        }
+      }
+    );
+  });
+}
+
+// Get sessions with ready count
+function getSessionsWithReadyCount(userId) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    db.all(
+      `SELECT 
+        session_id,
+        COUNT(*) as total_images,
+        SUM(CASE WHEN ready = 1 THEN 1 ELSE 0 END) as ready_images,
+        MAX(upload_time) as last_upload
+       FROM images 
+       WHERE user_id = ? AND is_deleted = 0 
+       GROUP BY session_id 
+       ORDER BY session_id DESC`,
+      [userId],
+      (err, rows) => {
+        db.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
+        }
+      }
+    );
+  });
+}
+
 module.exports = {
   initDatabase,
   getUser,
@@ -403,5 +493,8 @@ module.exports = {
   getSessions,
   getImageById,
   getImageByFilename,
-  updateImageRotation
+  updateImageRotation,
+  getReadyImages,
+  updateImagesReady,
+  getSessionsWithReadyCount
 }; 
