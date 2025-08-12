@@ -17,8 +17,8 @@
       </div>
       <nav class="management-nav">
         <a href="index.html" class="nav-link">← Back to Recording</a>
-        <button id="uploadBtn" class="upload-btn">Upload New Images</button>
-        <input type="file" id="imageInput" accept="image/*" webkitdirectory directory multiple style="display:none;">
+        <button id="uploadImagesBtn" class="upload-btn">Upload Images</button>
+        <input type="file" id="managementImageInput" multiple accept="image/*" style="display:none;">
       </nav>
     </header>
 
@@ -51,11 +51,12 @@
         </div>
 
         <div class="bulk-controls">
+          <span id="selectionCount" class="selection-count">0 images selected</span>
           <button id="selectAllBtn" class="btn btn-secondary">Select All</button>
           <button id="deselectAllBtn" class="btn btn-secondary">Deselect All</button>
           <button id="setReadyBtn" class="btn btn-success">Mark as Ready</button>
           <button id="setNotReadyBtn" class="btn btn-warning">Mark as Not Ready</button>
-          <button id="uploadImagesBtn" class="btn btn-primary">Upload Images</button>
+          <button id="deleteSelectedBtn" class="btn btn-danger">Delete Selected</button>
         </div>
       </div>
     </div>
@@ -70,7 +71,7 @@
       <!-- Images will be loaded here -->
     </div>
 
-    <input type="file" id="managementImageInput" multiple accept="image/*" style="display: none;">
+
 
     <!-- Image Detail Modal -->
     <div id="imageModal" class="modal">

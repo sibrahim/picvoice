@@ -95,16 +95,27 @@ function getSelectedImageIds() {
   return Array.from(checkboxes).map(cb => parseInt(cb.dataset.imageId));
 }
 
+// Update selection count display
+function updateSelectionCount() {
+  const selectedCount = getSelectedImageIds().length;
+  const selectionCountElement = document.getElementById('selectionCount');
+  if (selectionCountElement) {
+    selectionCountElement.textContent = `${selectedCount} image${selectedCount !== 1 ? 's' : ''} selected`;
+  }
+}
+
 // Select all images
 function selectAllImages() {
   const checkboxes = document.querySelectorAll('.image-checkbox');
   checkboxes.forEach(cb => cb.checked = true);
+  updateSelectionCount();
 }
 
 // Deselect all images
 function deselectAllImages() {
   const checkboxes = document.querySelectorAll('.image-checkbox');
   checkboxes.forEach(cb => cb.checked = false);
+  updateSelectionCount();
 }
 
 // Update ready flag for selected images
@@ -209,6 +220,12 @@ function renderImages() {
   `).join('');
   
   grid.innerHTML = html;
+  
+  // Add event listeners to checkboxes for selection count updates
+  const checkboxes = grid.querySelectorAll('.image-checkbox');
+  checkboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', updateSelectionCount);
+  });
 }
 
 // Update statistics
@@ -410,6 +427,68 @@ async function deleteImage(imageId) {
   }
 }
 
+// Delete multiple selected images
+async function deleteSelectedImages() {
+  const selectedIds = getSelectedImageIds();
+  
+  if (selectedIds.length === 0) {
+    alert('Please select at least one image to delete.');
+    return;
+  }
+
+  const count = selectedIds.length;
+  const confirmMessage = `Are you sure you want to delete ${count} selected image${count > 1 ? 's' : ''}? This will also delete all associated annotations and MP3 files.`;
+  
+  if (!confirm(confirmMessage)) {
+    return;
+  }
+
+  try {
+    let deletedCount = 0;
+    let failedCount = 0;
+
+    // Delete images one by one
+    for (const imageId of selectedIds) {
+      try {
+        const response = await fetch(`/api/image/${imageId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          deletedCount++;
+        } else {
+          failedCount++;
+          console.error(`Failed to delete image ${imageId}:`, await response.text());
+        }
+      } catch (error) {
+        failedCount++;
+        console.error(`Error deleting image ${imageId}:`, error);
+      }
+    }
+
+    // Show results
+    if (failedCount === 0) {
+      alert(`Successfully deleted ${deletedCount} image${deletedCount > 1 ? 's' : ''}!`);
+    } else {
+      alert(`Deleted ${deletedCount} image${deletedCount > 1 ? 's' : ''}, but failed to delete ${failedCount} image${deletedCount > 1 ? 's' : ''}.`);
+    }
+
+    // Reload data and refresh UI
+    await loadImages();
+    await loadAnnotations();
+    await loadSessions();
+    renderImages();
+    updateStats();
+    
+    // Close modal if it was open
+    closeImageModal();
+    
+  } catch (error) {
+    console.error('Error during bulk delete:', error);
+    alert('An error occurred during bulk delete. Please try again.');
+  }
+}
+
 // Open recording modal
 function openRecordingModal() {
   if (!currentImage) return;
@@ -564,35 +643,7 @@ async function createAnnotation(audioBlob) {
   }
 }
 
-// Upload new images
-async function uploadImages(files) {
-  const formData = new FormData();
-  files.forEach(file => {
-    formData.append('images', file);
-  });
-  
-  try {
-    const response = await fetch('/upload-images', {
-      method: 'POST',
-      body: formData
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      alert(`Successfully uploaded ${result.uploaded} images!`);
-      await loadImages();
-      await loadAnnotations();
-      renderImages();
-      updateStats();
-    } else {
-      alert('Upload failed: ' + result.error);
-    }
-  } catch (error) {
-    console.error('Upload error:', error);
-    alert('Upload failed. Please try again.');
-  }
-}
+
 
 // Upload images through management interface
 async function uploadImagesToManagement(files) {
@@ -673,15 +724,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('readyFilterSelect').addEventListener('change', renderImages);
   document.getElementById('sessionFilterSelect').addEventListener('change', renderImages);
   
-  // Upload button
-  document.getElementById('uploadBtn').addEventListener('click', () => {
-    document.getElementById('imageInput').click();
+  // Upload button (now in header nav)
+  document.getElementById('uploadImagesBtn').addEventListener('click', () => {
+    document.getElementById('managementImageInput').click();
   });
   
-  document.getElementById('imageInput').addEventListener('change', (event) => {
-    const files = Array.from(event.target.files).filter(file => file.type.startsWith('image/'));
-    if (files.length > 0) {
-      uploadImages(files);
+  document.getElementById('managementImageInput').addEventListener('change', (event) => {
+    if (event.target.files.length > 0) {
+      uploadImagesToManagement(event.target.files);
+      event.target.value = ''; // Reset input
     }
   });
   
@@ -690,19 +741,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('deselectAllBtn').addEventListener('click', deselectAllImages);
   document.getElementById('setReadyBtn').addEventListener('click', () => updateSelectedImagesReady(true));
   document.getElementById('setNotReadyBtn').addEventListener('click', () => updateSelectedImagesReady(false));
+  document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelectedImages);
   
-  // Upload button
-  document.getElementById('uploadImagesBtn').addEventListener('click', () => {
-    document.getElementById('managementImageInput').click();
-  });
-  
-  // File input change
-  document.getElementById('managementImageInput').addEventListener('change', (event) => {
-    if (event.target.files.length > 0) {
-      uploadImagesToManagement(event.target.files);
-      event.target.value = ''; // Reset input
-    }
-  });
+
   
   // Modal close buttons
   document.getElementById('closeModal').addEventListener('click', closeImageModal);

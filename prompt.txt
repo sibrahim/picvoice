@@ -102,7 +102,8 @@ There are two upload buttons in the management screen.
 One labelled "Upload New Images" and the other labelled "Upload Images".
 1) "Upload Images" is a image file selector and
 2) "Upload New Images" uploads folders.
-Is it possible to consolidate these two into 1 button having both functionality ?
+Is it possible to consolidate the file and image selector into one ?
+If not just keep the "Upload Images" button.
 When images are uploaded in management interface, set ready=0
 
 
