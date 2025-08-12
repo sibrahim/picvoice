@@ -106,9 +106,19 @@ Is it possible to consolidate the file and image selector into one ?
 If not just keep the "Upload Images" button.
 When images are uploaded in management interface, set ready=0
 
-
+Remove (2) "Upload New Images"  in management page 
 
 -------
+
+Tags:
+
+I am intereted in adding a tagging mechanism for images.
+Could this be used to implement albums and favourite images as well.
+
+The management interface should also support setting a set of images with user
+defined tags. A way to manage tags as well. 
+
+The images can be favourited/unfavorited  with a star on the management page.
 
 Albums:
 
@@ -120,12 +130,15 @@ Viewing of All images OR from an Album in the management screen.
 In the management screen, please add support for selecting a set of images into
 an album.
 
-The management interface should also support setting a set of images with user
-defined tags. A way to manage tags as well. 
 
-The images can be favourited with a star. 
+Filtering:
 
-The filter should allow selection of favourites, annotated, not annotated within an album or all images, last session, Ready=1, Ready =0 etc.
+The filter on the management page should allow selection of
+favourites,
+annotated, not annotated
+last session,
+ready state,
+within an album or all images
 
 
 -------
