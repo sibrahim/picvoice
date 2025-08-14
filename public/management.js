@@ -22,18 +22,34 @@ async function loadImages() {
     const response = await fetch('/api/all-images');
     const data = await response.json();
     const cacheBuster = Date.now() + Math.random(); // More unique cache-busting parameter
-    images = data.images.map(img => ({
-      id: img.id,
-      filename: img.filename,
-      name: img.original_filename || img.filename,
-      url: `${img.url || `/users/testuser@gmail.com/uploads/${img.filename}`}?t=${cacheBuster}`,
-      upload_time: img.upload_time,
-      session_id: img.session_id,
-      is_favorite: img.is_favorite,
-      tags: img.tags,
-      hasAnnotation: false,
-      annotationCount: 0,
-      ready: img.ready // Assuming 'ready' is part of the image data
+    
+    // Load images with tags
+    images = await Promise.all(data.images.map(async img => {
+      // Get tags for this image
+      let imageTags = [];
+      try {
+        const tagsResponse = await fetch(`/api/images/${img.id}/tags`);
+        if (tagsResponse.ok) {
+          const tagsData = await tagsResponse.json();
+          imageTags = tagsData.tags || [];
+        }
+      } catch (error) {
+        console.error(`Error loading tags for image ${img.id}:`, error);
+      }
+      
+      return {
+        id: img.id,
+        filename: img.filename,
+        name: img.original_filename || img.filename,
+        url: `${img.url || `/users/testuser@gmail.com/uploads/${img.filename}`}?t=${cacheBuster}`,
+        upload_time: img.upload_time,
+        session_id: img.session_id,
+        is_favorite: img.is_favorite,
+        tags: imageTags,
+        hasAnnotation: false,
+        annotationCount: 0,
+        ready: img.ready
+      };
     }));
   } catch (error) {
     console.error('Error loading images:', error);
@@ -87,6 +103,318 @@ async function loadSessions() {
   } catch (error) {
     console.error('Error loading sessions:', error);
   }
+}
+
+// Load tags (user-defined categorization only)
+async function loadTags() {
+  try {
+    const response = await fetch('/api/tags');
+    if (response.ok) {
+      const data = await response.json();
+      tags = data.tags;
+      
+      // Update tag filter dropdown
+      const tagSelect = document.getElementById('tagFilterSelect');
+      tagSelect.innerHTML = '<option value="all">All Tags</option>';
+      
+      // Update bulk tag assignment dropdown
+      const bulkTagSelect = document.getElementById('bulkTagSelect');
+      bulkTagSelect.innerHTML = '<option value="">Select tag to assign...</option>';
+      
+      // Update modal tag assignment dropdown
+      const modalTagSelect = document.getElementById('modalTagSelect');
+      if (modalTagSelect) {
+        modalTagSelect.innerHTML = '<option value="">Select tag to add...</option>';
+      }
+      
+      tags.forEach(tag => {
+        // Add to filter dropdown
+        const filterOption = document.createElement('option');
+        filterOption.value = tag.id;
+        filterOption.textContent = tag.name;
+        tagSelect.appendChild(filterOption);
+        
+        // Add to bulk assignment dropdown
+        const bulkOption = document.createElement('option');
+        bulkOption.value = tag.id;
+        bulkOption.textContent = tag.name;
+        bulkTagSelect.appendChild(bulkOption);
+        
+        // Add to modal dropdown
+        if (modalTagSelect) {
+          const modalOption = document.createElement('option');
+          modalOption.value = tag.id;
+          modalOption.textContent = tag.name;
+          modalTagSelect.appendChild(modalOption);
+        }
+      });
+      
+      // Render tag list
+      renderTagList();
+    }
+  } catch (error) {
+    console.error('Error loading tags:', error);
+  }
+}
+
+// Render tag list
+function renderTagList() {
+  const tagList = document.getElementById('tagList');
+  if (!tagList) return;
+  
+  const html = tags.map(tag => `
+    <div class="tag-item" data-tag-id="${tag.id}">
+      <div class="tag-color" style="background-color: ${tag.color}"></div>
+      <span class="tag-name">${tag.name}</span>
+      <button class="tag-delete" onclick="deleteTag(${tag.id})">×</button>
+    </div>
+  `).join('');
+  
+  tagList.innerHTML = html;
+}
+
+// Create new tag
+async function createTag() {
+  const nameInput = document.getElementById('newTagName');
+  const colorInput = document.getElementById('newTagColor');
+  
+  const name = nameInput.value.trim();
+  const color = colorInput.value;
+  
+  if (!name) {
+    alert('Please enter a tag name');
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/tags', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name, color })
+    });
+    
+    if (response.ok) {
+      // Clear input
+      nameInput.value = '';
+      
+      // Reload tags
+      await loadTags();
+      
+      alert('Tag created successfully!');
+    } else {
+      const errorText = await response.text();
+      alert('Failed to create tag: ' + errorText);
+    }
+  } catch (error) {
+    console.error('Error creating tag:', error);
+    alert('Failed to create tag. Please try again.');
+  }
+}
+
+// Delete tag
+async function deleteTag(tagId) {
+  if (!confirm('Are you sure you want to delete this tag? This will remove it from all images.')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/tags/${tagId}`, {
+      method: 'DELETE'
+    });
+    
+    if (response.ok) {
+      // Reload tags
+      await loadTags();
+      
+      alert('Tag created successfully!');
+    } else {
+      const errorText = await response.text();
+      alert('Failed to delete tag: ' + errorText);
+    }
+  } catch (error) {
+    console.error('Error deleting tag:', error);
+    alert('Failed to delete tag. Please try again.');
+  }
+}
+
+// Toggle favorite
+async function toggleFavorite(imageId) {
+  try {
+    const response = await fetch(`/api/images/${imageId}/favorite`, {
+      method: 'POST'
+    });
+    
+    if (response.ok) {
+      // Reload images to update favorite status
+      await loadImages();
+      renderImages();
+      updateStats();
+    } else {
+      const errorText = await response.text();
+      alert('Failed to update favorite status: ' + errorText);
+    }
+  } catch (error) {
+    console.error('Error toggling favorite:', error);
+    alert('Failed to update favorite status. Please try again.');
+  }
+}
+
+// Assign tag to multiple selected images
+async function assignTagToSelectedImages() {
+  const selectedIds = getSelectedImageIds();
+  const tagId = document.getElementById('bulkTagSelect').value;
+  
+  if (selectedIds.length === 0) {
+    alert('Please select at least one image.');
+    return;
+  }
+  
+  if (!tagId) {
+    alert('Please select a tag to assign.');
+    return;
+  }
+  
+  try {
+    let successCount = 0;
+    let failedCount = 0;
+    
+    // Assign tag to each selected image
+    for (const imageId of selectedIds) {
+      try {
+        const response = await fetch(`/api/images/${imageId}/tags/${tagId}`, {
+          method: 'POST'
+        });
+        
+        if (response.ok) {
+          successCount++;
+        } else {
+          failedCount++;
+          console.error(`Failed to assign tag to image ${imageId}:`, await response.text());
+        }
+      } catch (error) {
+        failedCount++;
+        console.error(`Error assigning tag to image ${imageId}:`, error);
+      }
+    }
+    
+    // Show results
+    if (failedCount === 0) {
+      alert(`Successfully assigned tag to ${successCount} image${successCount > 1 ? 's' : ''}!`);
+    } else {
+      alert(`Assigned tag to ${successCount} image${successCount > 1 ? 's' : ''}, but failed for ${failedCount} image${failedCount > 1 ? 's' : ''}.`);
+    }
+    
+    // Reload data and refresh UI
+    await loadImages();
+    renderImages();
+    updateStats();
+    
+    // Deselect all after update
+    deselectAllImages();
+    
+    // Reset tag select
+    document.getElementById('bulkTagSelect').value = '';
+    
+  } catch (error) {
+    console.error('Error during bulk tag assignment:', error);
+    alert('An error occurred during tag assignment. Please try again.');
+  }
+}
+
+// Add tag to single image (from modal)
+async function addTagToImage(imageId) {
+  const tagId = document.getElementById('modalTagSelect').value;
+  
+  if (!tagId) {
+    alert('Please select a tag to add.');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/images/${imageId}/tags/${tagId}`, {
+      method: 'POST'
+    });
+    
+    if (response.ok) {
+      // Reload image tags in modal
+      await loadImageTagsForModal(imageId);
+      
+      // Reload main data
+      await loadImages();
+      renderImages();
+      updateStats();
+      
+      alert('Tag added successfully!');
+    } else {
+      const errorText = await response.text();
+      alert('Failed to add tag: ' + errorText);
+    }
+  } catch (error) {
+    console.error('Error adding tag to image:', error);
+    alert('Failed to add tag. Please try again.');
+  }
+}
+
+// Remove tag from image
+async function removeTagFromImage(imageId, tagId) {
+  try {
+    const response = await fetch(`/api/images/${imageId}/tags/${tagId}`, {
+      method: 'DELETE'
+    });
+    
+    if (response.ok) {
+      // Reload image tags in modal
+      await loadImageTagsForModal(imageId);
+      
+      // Reload main data
+      await loadImages();
+      renderImages();
+      updateStats();
+      
+      alert('Tag removed successfully!');
+    } else {
+      const errorText = await response.text();
+      alert('Failed to remove tag: ' + errorText);
+    }
+  } catch (error) {
+    console.error('Error removing tag from image:', error);
+    alert('Failed to remove tag. Please try again.');
+  }
+}
+
+// Load image tags for modal display
+async function loadImageTagsForModal(imageId) {
+  try {
+    const response = await fetch(`/api/images/${imageId}/tags`);
+    if (response.ok) {
+      const data = await response.json();
+      renderImageTagsInModal(data.tags);
+    }
+  } catch (error) {
+    console.error('Error loading image tags for modal:', error);
+  }
+}
+
+// Render image tags in modal
+function renderImageTagsInModal(imageTags) {
+  const currentTagsDiv = document.getElementById('currentImageTags');
+  if (!currentTagsDiv) return;
+  
+  if (imageTags.length === 0) {
+    currentTagsDiv.innerHTML = '<span class="no-tags">No tags assigned</span>';
+    return;
+  }
+  
+  const html = imageTags.map(tag => `
+    <span class="image-tag" style="background-color: ${tag.color}20; border-color: ${tag.color}; color: ${tag.color};">
+      ${tag.name}
+      <button class="tag-remove" onclick="removeTagFromImage(${currentImage.id}, ${tag.id})" title="Remove tag">×</button>
+    </span>
+  `).join('');
+  
+  currentTagsDiv.innerHTML = html;
 }
 
 // Get selected image IDs
@@ -167,22 +495,31 @@ function renderImages() {
   const sortBy = document.getElementById('sortSelect').value;
   const filterBy = document.getElementById('filterSelect').value;
   const readyFilter = document.getElementById('readyFilterSelect').value;
+  const favoriteFilter = document.getElementById('favoriteFilterSelect').value;
+  const tagFilter = document.getElementById('tagFilterSelect').value;
   const sessionFilter = document.getElementById('sessionFilterSelect').value;
   const searchTerm = document.getElementById('searchInput').value.toLowerCase();
   
   // Filter and sort images
+  // Note: We use database columns for simple flags (ready, is_favorite) and 
+  // annotations table for annotation status, while tags are for user-defined categorization
   let filteredImages = images.filter(image => {
     const matchesSearch = image.name.toLowerCase().includes(searchTerm);
     const matchesFilter = filterBy === 'all' || 
       (filterBy === 'annotated' && image.hasAnnotation) ||
       (filterBy === 'unannotated' && !image.hasAnnotation);
     const matchesReady = readyFilter === 'all' || 
-      (readyFilter === 'ready' && image.ready) ||
-      (readyFilter === 'not-ready' && !image.ready);
+      (filterBy === 'ready' && image.ready) ||
+      (filterBy === 'not-ready' && !image.ready);
+    const matchesFavorite = favoriteFilter === 'all' || 
+      (favoriteFilter === 'favorites' && image.is_favorite) ||
+      (favoriteFilter === 'not-favorites' && !image.is_favorite);
+    const matchesTag = tagFilter === 'all' || 
+      (image.tags && image.tags.some(tag => tag.id.toString() === tagFilter));
     const matchesSession = sessionFilter === 'all' || 
       image.session_id.toString() === sessionFilter;
     
-    return matchesSearch && matchesFilter && matchesReady && matchesSession;
+    return matchesSearch && matchesFilter && matchesReady && matchesFavorite && matchesTag && matchesSession;
   });
   
   // Sort images
@@ -199,12 +536,16 @@ function renderImages() {
     }
   });
   
-  // Generate HTML with checkboxes and ready status
+  // Generate HTML with checkboxes, favorite stars, and ready status
   const html = filteredImages.map(image => `
     <div class="image-card" onclick="openImageModal('${image.filename}')">
       <div class="image-card-checkbox">
         <input type="checkbox" class="image-checkbox" data-image-id="${image.id}" onclick="event.stopPropagation();">
       </div>
+      <button class="favorite-star ${image.is_favorite ? 'favorited' : ''}" 
+              onclick="event.stopPropagation(); toggleFavorite(${image.id})">
+        ${image.is_favorite ? '★' : '☆'}
+      </button>
       <img src="${image.url}" alt="${image.name}" />
       <div class="image-card-info">
         <div class="image-card-name">${image.name}</div>
@@ -215,6 +556,15 @@ function renderImages() {
         <div class="ready-status ${image.ready ? 'ready' : 'not-ready'}">
           ${image.ready ? '✅ Ready' : '⏳ Not Ready'}
         </div>
+        ${image.tags && image.tags.length > 0 ? `
+          <div class="image-tags">
+            ${image.tags.map(tag => `
+              <span class="image-tag" style="background-color: ${tag.color}20; border-color: ${tag.color}; color: ${tag.color};">
+                ${tag.name}
+              </span>
+            `).join('')}
+          </div>
+        ` : ''}
       </div>
     </div>
   `).join('');
@@ -269,6 +619,9 @@ function openImageModal(filename) {
   
   // Render annotations list
   renderAnnotationsList(imageAnnotations);
+  
+  // Load and display image tags
+  loadImageTagsForModal(currentImage.id);
   
   modal.style.display = 'block';
 }
@@ -717,6 +1070,12 @@ async function rotateImage(imageId) {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize data
+  loadImages();
+  loadAnnotations();
+  loadSessions();
+  loadTags();
+  
   // Sort and filter controls
   document.getElementById('sortSelect').addEventListener('change', renderImages);
   document.getElementById('filterSelect').addEventListener('change', renderImages);
@@ -735,6 +1094,21 @@ document.addEventListener('DOMContentLoaded', () => {
       event.target.value = ''; // Reset input
     }
   });
+  
+  // Tag management
+  document.getElementById('createTagBtn').addEventListener('click', createTag);
+  
+  // Tag assignment
+  document.getElementById('assignTagBtn').addEventListener('click', assignTagToSelectedImages);
+  document.getElementById('addTagToImageBtn').addEventListener('click', () => {
+    if (currentImage) {
+      addTagToImage(currentImage.id);
+    }
+  });
+  
+  // Filter controls
+  document.getElementById('favoriteFilterSelect').addEventListener('change', renderImages);
+  document.getElementById('tagFilterSelect').addEventListener('change', renderImages);
   
   // Bulk selection buttons
   document.getElementById('selectAllBtn').addEventListener('click', selectAllImages);

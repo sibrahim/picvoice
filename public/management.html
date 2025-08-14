@@ -43,6 +43,16 @@
             <option value="not-ready">Not Ready</option>
           </select>
 
+          <select id="favoriteFilterSelect">
+            <option value="all">All Images</option>
+            <option value="favorites">Favorites Only</option>
+            <option value="not-favorites">Not Favorites</option>
+          </select>
+
+          <select id="tagFilterSelect">
+            <option value="all">All Tags</option>
+          </select>
+
           <select id="sessionFilterSelect">
             <option value="all">All Sessions</option>
           </select>
@@ -57,6 +67,23 @@
           <button id="setReadyBtn" class="btn btn-success">Mark as Ready</button>
           <button id="setNotReadyBtn" class="btn btn-warning">Mark as Not Ready</button>
           <button id="deleteSelectedBtn" class="btn btn-danger">Delete Selected</button>
+          <div class="tag-assignment">
+            <select id="bulkTagSelect">
+              <option value="">Select tag to assign...</option>
+            </select>
+            <button id="assignTagBtn" class="btn btn-info">Assign Tag</button>
+          </div>
+        </div>
+        
+        <div class="tag-management">
+          <div class="tag-controls">
+            <input type="text" id="newTagName" placeholder="New tag name" />
+            <input type="color" id="newTagColor" value="#3b82f6" />
+            <button id="createTagBtn" class="btn btn-primary">Create Tag</button>
+          </div>
+          <div class="tag-list" id="tagList">
+            <!-- Tags will be loaded here -->
+          </div>
         </div>
       </div>
     </div>
@@ -91,6 +118,19 @@
               <button id="addAnnotation" class="btn btn-success">Add Annotation</button>
               <button id="rotateImage" class="btn btn-secondary">🔄 Rotate</button>
               <button id="deleteImage" class="btn btn-danger">Delete Image</button>
+            </div>
+            
+            <div class="image-tag-management">
+              <h4>Image Tags</h4>
+              <div class="current-tags" id="currentImageTags">
+                <!-- Current tags will be displayed here -->
+              </div>
+              <div class="add-tag-controls">
+                <select id="modalTagSelect">
+                  <option value="">Select tag to add...</option>
+                </select>
+                <button id="addTagToImageBtn" class="btn btn-primary">Add Tag</button>
+              </div>
             </div>
             <div class="annotation-player" id="annotationPlayer" style="display:none;">
               <audio id="audioPlayer" controls></audio>

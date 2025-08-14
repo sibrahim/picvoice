@@ -295,6 +295,191 @@ app.post('/api/images/ready', async (req, res) => {
   }
 });
 
+// Tag management endpoints
+app.get('/api/tags', async (req, res) => {
+  try {
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const tags = await db.getAllTags(user.id);
+    res.json({ tags });
+  } catch (error) {
+    console.error('Error getting tags:', error);
+    res.status(500).send('Failed to get tags');
+  }
+});
+
+app.post('/api/tags', async (req, res) => {
+  try {
+    const { name, color, category } = req.body;
+    
+    if (!name) {
+      return res.status(400).send('Tag name is required');
+    }
+
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const tagId = await db.createTag(user.id, name, color || '#3b82f6', category || 'general');
+    
+    res.json({ 
+      success: true, 
+      message: 'Tag created successfully',
+      tagId 
+    });
+  } catch (error) {
+    console.error('Error creating tag:', error);
+    res.status(500).send('Failed to create tag');
+  }
+});
+
+app.delete('/api/tags/:tagId', async (req, res) => {
+  try {
+    const { tagId } = req.params;
+    
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const deletedCount = await db.deleteTag(parseInt(tagId));
+    
+    if (deletedCount > 0) {
+      res.json({ 
+        success: true, 
+        message: 'Tag deleted successfully' 
+      });
+    } else {
+      res.status(404).send('Tag not found');
+    }
+  } catch (error) {
+    console.error('Error deleting tag:', error);
+    res.status(500).send('Failed to delete tag');
+  }
+});
+
+app.post('/api/images/:imageId/tags/:tagId', async (req, res) => {
+  try {
+    const { imageId, tagId } = req.params;
+    
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const result = await db.addTagToImage(parseInt(imageId), parseInt(tagId));
+    
+    res.json({ 
+      success: true, 
+      message: 'Tag added to image successfully' 
+    });
+  } catch (error) {
+    console.error('Error adding tag to image:', error);
+    res.status(500).send('Failed to add tag to image');
+  }
+});
+
+app.delete('/api/images/:imageId/tags/:tagId', async (req, res) => {
+  try {
+    const { imageId, tagId } = req.params;
+    
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const result = await db.removeTagFromImage(parseInt(imageId), parseInt(tagId));
+    
+    res.json({ 
+      success: true, 
+      message: 'Tag removed from image successfully' 
+    });
+  } catch (error) {
+    console.error('Error removing tag from image:', error);
+    res.status(500).send('Failed to remove tag from image');
+  }
+});
+
+app.post('/api/images/:imageId/favorite', async (req, res) => {
+  try {
+    const { imageId } = req.params;
+    
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const result = await db.toggleFavorite(parseInt(imageId));
+    
+    res.json({ 
+      success: true, 
+      message: 'Favorite status updated successfully' 
+    });
+  } catch (error) {
+    console.error('Error toggling favorite:', error);
+    res.status(500).send('Failed to update favorite status');
+  }
+});
+
+// Get images by favorite status
+app.get('/api/images/favorites/:status', async (req, res) => {
+  try {
+    const { status } = req.params;
+    
+    if (!['true', 'false'].includes(status)) {
+      return res.status(400).send('Status must be "true" or "false"');
+    }
+    
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const images = await db.getImagesByFavoriteStatus(user.id, status === 'true');
+    
+    res.json({ 
+      images: images.map(img => ({
+        id: img.id,
+        filename: img.filename,
+        original_filename: img.original_filename,
+        upload_time: img.upload_time,
+        session_id: img.session_id,
+        is_favorite: img.is_favorite,
+        tags: [], // Will be populated by frontend if needed
+        rotation_degrees: img.rotation_degrees || 0,
+        ready: img.ready || 0,
+        url: `/users/${user.email}/uploads/${img.filename}`
+      }))
+    });
+  } catch (error) {
+    console.error('Error getting images by favorite status:', error);
+    res.status(500).send('Failed to get images by favorite status');
+  }
+});
+
+// Get tags for a specific image
+app.get('/api/images/:imageId/tags', async (req, res) => {
+  try {
+    const { imageId } = req.params;
+    
+    const user = await db.getUser(DEFAULT_USER);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const tags = await db.getImageTags(parseInt(imageId));
+    
+    res.json({ tags });
+  } catch (error) {
+    console.error('Error getting image tags:', error);
+    res.status(500).send('Failed to get image tags');
+  }
+});
+
 // Get user's annotations
 app.get('/api/annotations', async (req, res) => {
   try {

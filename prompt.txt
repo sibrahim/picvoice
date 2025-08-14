@@ -113,7 +113,7 @@ Remove (2) "Upload New Images"  in management page
 Tags:
 
 I am intereted in adding a tagging mechanism for images.
-Could this be used to implement albums and favourite images as well.
+Could this be used to implement albums and favourite images as well ?
 
 The management interface should also support setting a set of images with user
 defined tags. A way to manage tags as well. 
@@ -141,4 +141,5 @@ ready state,
 within an album or all images
 
 
+Before proceeding, please share with me options as well as alternatives to what i have proposed.
 -------

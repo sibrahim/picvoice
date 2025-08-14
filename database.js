@@ -394,7 +394,7 @@ function getReadyImages(userId) {
   return new Promise((resolve, reject) => {
     const db = new sqlite3.Database(dbPath);
     
-    // Get only Ready=1 images
+    // Get only Ready=1 images using the ready column
     db.all(
       `SELECT * FROM images 
        WHERE user_id = ? AND is_deleted = 0 
@@ -428,6 +428,157 @@ function updateImagesReady(imageIds, ready) {
           reject(err);
         } else {
           resolve(this.changes);
+        }
+      }
+    );
+  });
+}
+
+// Tag management functions
+function getAllTags(userId) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    db.all(
+      'SELECT * FROM tags WHERE user_id = ? ORDER BY name',
+      [userId],
+      (err, rows) => {
+        db.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
+        }
+      }
+    );
+  });
+}
+
+function createTag(userId, name, color = '#3b82f6', category = 'general') {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    db.run(
+      'INSERT INTO tags (user_id, name, color, category) VALUES (?, ?, ?, ?)',
+      [userId, name, color, category],
+      function(err) {
+        db.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this.lastID);
+        }
+      }
+    );
+  });
+}
+
+function deleteTag(tagId) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    db.run(
+      'DELETE FROM tags WHERE id = ?',
+      [tagId],
+      function(err) {
+        db.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this.changes);
+        }
+      }
+    );
+  });
+}
+
+function getImageTags(imageId) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    db.all(
+      `SELECT t.* FROM tags t 
+       JOIN image_tags it ON t.id = it.tag_id 
+       WHERE it.image_id = ?`,
+      [imageId],
+      (err, rows) => {
+        db.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
+        }
+      }
+    );
+  });
+}
+
+function addTagToImage(imageId, tagId) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    db.run(
+      'INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)',
+      [imageId, tagId],
+      function(err) {
+        db.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this.changes);
+        }
+      }
+    );
+  });
+}
+
+function removeTagFromImage(imageId, tagId) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    db.run(
+      'DELETE FROM image_tags WHERE image_id = ? AND tag_id = ?',
+      [imageId, tagId],
+      function(err) {
+        db.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this.changes);
+        }
+      }
+    );
+  });
+}
+
+function toggleFavorite(imageId) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    db.run(
+      'UPDATE images SET is_favorite = CASE WHEN is_favorite = 1 THEN 0 ELSE 1 END WHERE id = ?',
+      [imageId],
+      function(err) {
+        db.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this.changes);
+        }
+      }
+    );
+  });
+}
+
+// Get images by favorite status
+function getImagesByFavoriteStatus(userId, isFavorite) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    db.all(
+      `SELECT * FROM images 
+       WHERE user_id = ? AND is_deleted = 0 
+       AND is_favorite = ?
+       ORDER BY upload_time DESC`,
+      [userId, isFavorite ? 1 : 0],
+      (err, rows) => {
+        db.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
         }
       }
     );
@@ -481,5 +632,12 @@ module.exports = {
   updateImageRotation,
   getReadyImages,
   updateImagesReady,
-  getSessionsWithReadyCount
+  getSessionsWithReadyCount,
+  getAllTags,
+  createTag,
+  deleteTag,
+  getImageTags,
+  addTagToImage,
+  removeTagFromImage,
+  getImagesByFavoriteStatus
 }; 
