@@ -541,8 +541,8 @@ function renderImages() {
       (filterBy === 'annotated' && image.hasAnnotation) ||
       (filterBy === 'unannotated' && !image.hasAnnotation);
     const matchesReady = readyFilter === 'all' || 
-      (filterBy === 'ready' && image.ready) ||
-      (filterBy === 'not-ready' && !image.ready);
+      (readyFilter === 'ready' && image.ready) ||
+      (readyFilter === 'not-ready' && !image.ready);
     const matchesFavorite = favoriteFilter === 'all' || 
       (favoriteFilter === 'favorites' && image.is_favorite) ||
       (favoriteFilter === 'not-favorites' && !image.is_favorite);
