@@ -46,17 +46,17 @@ picvoice.db              # SQLite database
 ## Installation
 
 1. Install dependencies:
-```bash
-npm install
-```
+   ```bash
+   npm install
+   ```
 
 2. Start the server:
-```bash
-npm start
-```
+   ```bash
+   npm start
+   ```
 
 3. Access the application:
-- Local: http://localhost:3000
+   - Local: http://localhost:3000
 - iPad/Remote: http://[YOUR_COMPUTER_IP]:3000
 
 ## API Endpoints

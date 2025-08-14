@@ -14,39 +14,65 @@ function initDatabase() {
         return;
       }
       
-      // Create users table
-      db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`, (err) => {
+      // Enable foreign keys
+      db.run('PRAGMA foreign_keys = ON', (err) => {
         if (err) {
           reject(err);
           return;
         }
         
-        // Create images table
-        db.run(`CREATE TABLE IF NOT EXISTS images (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER NOT NULL,
-          filename TEXT NOT NULL,
-          original_filename TEXT NOT NULL,
-          upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-          session_id INTEGER NOT NULL,
-          is_favorite BOOLEAN DEFAULT 0,
-          tags TEXT,
-          is_deleted BOOLEAN DEFAULT 0,
-          rotation_degrees INTEGER DEFAULT 0,
-          ready INTEGER DEFAULT 0,
-          FOREIGN KEY (user_id) REFERENCES users (id)
-        )`, (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          
-          // Create annotations table with session_id
-          db.run(`CREATE TABLE IF NOT EXISTS annotations (
+        // Create tables sequentially
+        createTables(db)
+          .then(() => {
+            // Insert default user
+            return insertDefaultUser(db);
+          })
+          .then(() => {
+            resolve(db);
+          })
+          .catch(reject);
+      });
+    });
+  });
+}
+
+// Create all database tables
+function createTables(db) {
+  return new Promise((resolve, reject) => {
+    const tables = [
+      {
+        name: 'users',
+        sql: `
+          CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `
+      },
+      {
+        name: 'images',
+        sql: `
+          CREATE TABLE IF NOT EXISTS images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            filename TEXT NOT NULL,
+            original_filename TEXT NOT NULL,
+            upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            session_id INTEGER NOT NULL,
+            is_favorite BOOLEAN DEFAULT 0,
+            tags TEXT,
+            is_deleted BOOLEAN DEFAULT 0,
+            rotation_degrees INTEGER DEFAULT 0,
+            ready INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+          )
+        `
+      },
+      {
+        name: 'annotations',
+        sql: `
+          CREATE TABLE IF NOT EXISTS annotations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             image_filename TEXT NOT NULL,
@@ -54,24 +80,121 @@ function initDatabase() {
             session_id INTEGER NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
-          )`, (err) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-            
-            // Insert default user if not exists
-            db.run(`INSERT OR IGNORE INTO users (email) VALUES (?)`, ['testuser@gmail.com'], (err) => {
-              if (err) {
-                reject(err);
-                return;
-              }
-              resolve(db);
-            });
-          });
-        });
+          )
+        `
+      },
+      {
+        name: 'tags',
+        sql: `
+          CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL,
+            category TEXT DEFAULT 'general',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, name),
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+          )
+        `
+      },
+      {
+        name: 'image_tags',
+        sql: `
+          CREATE TABLE IF NOT EXISTS image_tags (
+            image_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (image_id, tag_id),
+            FOREIGN KEY (image_id) REFERENCES images (id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
+          )
+        `
+      }
+    ];
+    
+    // Create tables one by one
+    let currentIndex = 0;
+    
+    function createNextTable() {
+      if (currentIndex >= tables.length) {
+        // Create indexes after all tables are created
+        createIndexes(db)
+          .then(resolve)
+          .catch(reject);
+        return;
+      }
+      
+      const table = tables[currentIndex];
+      db.run(table.sql, (err) => {
+        if (err) {
+          reject(new Error(`Failed to create ${table.name} table: ${err.message}`));
+          return;
+        }
+        
+        currentIndex++;
+        createNextTable();
       });
-    });
+    }
+    
+    createNextTable();
+  });
+}
+
+// Insert default user
+function insertDefaultUser(db) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'INSERT OR IGNORE INTO users (email) VALUES (?)',
+      ['testuser@gmail.com'],
+      (err) => {
+        if (err) {
+          reject(new Error(`Failed to insert default user: ${err.message}`));
+          return;
+        }
+        resolve();
+      }
+    );
+  });
+}
+
+// Create database indexes for better performance
+function createIndexes(db) {
+  return new Promise((resolve, reject) => {
+    const indexes = [
+      'CREATE INDEX IF NOT EXISTS idx_images_user_id ON images(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_images_session_id ON images(session_id)',
+      'CREATE INDEX IF NOT EXISTS idx_images_ready ON images(ready)',
+      'CREATE INDEX IF NOT EXISTS idx_images_is_favorite ON images(is_favorite)',
+      'CREATE INDEX IF NOT EXISTS idx_annotations_user_id ON annotations(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_annotations_image_filename ON annotations(image_filename)',
+      'CREATE INDEX IF NOT EXISTS idx_annotations_session_id ON annotations(session_id)',
+      'CREATE INDEX IF NOT EXISTS idx_tags_user_id ON tags(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_image_tags_image_id ON image_tags(image_id)',
+      'CREATE INDEX IF NOT EXISTS idx_image_tags_tag_id ON image_tags(tag_id)'
+    ];
+    
+    let currentIndex = 0;
+    
+    function createNextIndex() {
+      if (currentIndex >= indexes.length) {
+        resolve();
+        return;
+      }
+      
+      const indexSql = indexes[currentIndex];
+      db.run(indexSql, (err) => {
+        if (err) {
+          console.warn(`Warning: Failed to create index: ${err.message}`);
+          // Continue with other indexes even if one fails
+        }
+        
+        currentIndex++;
+        createNextIndex();
+      });
+    }
+    
+    createNextIndex();
   });
 }
 

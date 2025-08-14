@@ -225,10 +225,34 @@ async function deleteTag(tagId) {
     });
     
     if (response.ok) {
-      // Reload tags
+      // Remove tag from local array
+      tags = tags.filter(tag => tag.id !== tagId);
+      
+      // Reload tag list display
+      renderTagList();
+      
+      // Refresh all tag dropdowns
       await loadTags();
       
-      alert('Tag created successfully!');
+      // Reload images to update tag displays
+      await loadImages();
+      
+      // Clean up any references to deleted tags in the images array
+      images.forEach(image => {
+        if (image.tags) {
+          image.tags = image.tags.filter(tag => tag.id !== tagId);
+        }
+      });
+      
+      renderImages();
+      updateStats();
+      
+      // If modal is open, refresh the current image's tags
+      if (currentImage) {
+        await loadImageTagsForModal(currentImage.id);
+      }
+      
+      alert('Tag deleted successfully!');
     } else {
       const errorText = await response.text();
       alert('Failed to delete tag: ' + errorText);
@@ -407,7 +431,15 @@ function renderImageTagsInModal(imageTags) {
     return;
   }
   
-  const html = imageTags.map(tag => `
+  // Filter out any tags that no longer exist
+  const validTags = imageTags.filter(tag => tags.some(currentTag => currentTag.id === tag.id));
+  
+  if (validTags.length === 0) {
+    currentTagsDiv.innerHTML = '<span class="no-tags">No tags assigned</span>';
+    return;
+  }
+  
+  const html = validTags.map(tag => `
     <span class="image-tag" style="background-color: ${tag.color}20; border-color: ${tag.color}; color: ${tag.color};">
       ${tag.name}
       <button class="tag-remove" onclick="removeTagFromImage(${currentImage.id}, ${tag.id})" title="Remove tag">×</button>
@@ -558,11 +590,13 @@ function renderImages() {
         </div>
         ${image.tags && image.tags.length > 0 ? `
           <div class="image-tags">
-            ${image.tags.map(tag => `
-              <span class="image-tag" style="background-color: ${tag.color}20; border-color: ${tag.color}; color: ${tag.color};">
-                ${tag.name}
-              </span>
-            `).join('')}
+            ${image.tags
+              .filter(tag => tags.some(currentTag => currentTag.id === tag.id)) // Only show tags that still exist
+              .map(tag => `
+                <span class="image-tag" style="background-color: ${tag.color}20; border-color: ${tag.color}; color: ${tag.color};">
+                  ${tag.name}
+                </span>
+              `).join('')}
           </div>
         ` : ''}
       </div>
