@@ -143,3 +143,39 @@ within an album or all images
 
 Before proceeding, please share with me options as well as alternatives to what i have proposed.
 -------
+
+
+I would like to add the following features:
+
+a) Multi-user support. Google authentication can be added later. For now assume
+there will be testuser@gmail.com, test2@gmail.com and test3@gmail.com
+b) Each user will have two main screens - the simple annotation interface and
+the management interface
+c) Albums
+i) Pictures can be added and removed from an album. They can also be ordered. 
+ii) The current implementation of the "Ready to annotate" flag
+to be changed from an individual picture to an Album is "Ready to annotate".
+iii) Albums can be shared with other users in the system by permission. ie
+add a sharing interface, that allows the owner of the album to indicate
+other emails to share with or remove access per album. 
+THe annotations for a picture in an album are shared as well. 
+iv) The simple annotation interace will work on a per album basis with a
+selector (pull down) of different albums that can be annotated. These are
+chosen by the Ready flag for the album. Include albums that have been shared
+with you and Ready in the pull down interface. Suggest other interface options.
+The sequence of pictures to be annotated in the simple annotation interface
+is from the album.
+v) albums that are shared with you  will also appear in your management
+interface as albums. But you will not be able to delete images,
+rotate the images or delete any annotations that are not yours.
+You will only be able to
+additively add annotations and listen to existing annotations. Only owners
+can delete images, rotate images or their annotations. 
+
+Collaborative Albums
+
+Please suggest an approach and sequencing for implementing these features
+as well as any optimizations or best practices before changing any code.
+In addition any pros and cons.
+For example i am considering to automatically create an album for
+every upload session
